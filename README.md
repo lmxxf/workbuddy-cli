@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](pyproject.toml)
 [![DeepSeek First-Class](https://img.shields.io/badge/DeepSeek-First--Class%20Citizen-blueviolet.svg)](https://api.deepseek.com)
-[![Tests: 10/10 Passed](https://img.shields.io/badge/Tests-10%2F10%20Passed-brightgreen.svg)](tests/test_all.py)
+[![Tests: 11/11 Passed](https://img.shields.io/badge/Tests-11%2F11%20Passed-brightgreen.svg)](tests/test_all.py)
 
 ---
 
@@ -96,7 +96,11 @@ wb "用毒舌吐槽风格点评一下把同一个模型拆成齐活林、许清�
 # 切换深度思考模型 (deepseek-reasoner)
 wb --reasoner "推导 MLA 低秩压缩对 KV Cache 的显存收益"
 
-# 启动交互式 REPL（支持 /mode, /style, /team, /compact, /research, /critic, /docx, /recalc, /soul, /enhance）
+# 查看当前精细上下文账本 (Base System Prompt / AGENTS.md / 历史对话占比与 15% 压缩水位线)
+wb --context
+
+# 启动交互式 REPL（内置 prompt_toolkit 实时 `/` 下拉菜单 + 多级 `Tab` 自动补全：
+# 支持 /context, /status, /mode, /style, /model, /profile, /team, /compact, /research, /critic, /docx, /recalc, /soul, /enhance, /clear）
 wb
 ```
 

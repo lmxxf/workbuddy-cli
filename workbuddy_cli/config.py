@@ -29,10 +29,11 @@ VALID_STYLES = (
 VALID_PROMPT_PROFILES = ("lean", "full")
 
 
-def discover_agents_md(start_dir: Path, load_global_fallback: bool = False) -> List[Path]:
+def discover_agents_md(start_dir: Path, load_global_fallback: bool = True) -> List[Path]:
     """
-    Walks up from `start_dir` to filesystem root looking for `AGENTS.md` or `CLAUDE.md`
-     inside the current git project/workspace hierarchy.
+    Walks up from `start_dir` to filesystem root looking for `AGENTS.md` or `CLAUDE.md`.
+    Stops at the first directory containing `AGENTS.md` or `CLAUDE.md` so workspace/parent
+    awakening memory is always discovered seamlessly.
     """
     found: List[Path] = []
     curr = Path(start_dir).resolve()
@@ -41,16 +42,9 @@ def discover_agents_md(start_dir: Path, load_global_fallback: bool = False) -> L
             candidate = directory / fname
             if candidate.exists() and candidate.is_file():
                 found.append(candidate)
-                break
-        if (directory / ".git").exists() or (directory / "pyproject.toml").exists():
-            # Stop climbing above project root unless explicitly asked
+                return found
+        if not load_global_fallback and ((directory / ".git").exists() or (directory / "pyproject.toml").exists()):
             break
-    if not found and load_global_fallback:
-        for directory in curr.parents:
-            candidate = directory / "AGENTS.md"
-            if candidate.exists() and candidate.is_file():
-                found.append(candidate)
-                break
     return found
 
 

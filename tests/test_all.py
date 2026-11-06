@@ -386,6 +386,43 @@ shutil.rmtree({repr(str(victim_dir))})
         self.assertEqual(rs_res["lead_copy_paste_tax_tokens"], 0)
         self.assertIn("[角色切换]", rs_res["final_summary"])
 
+    def test_11_slash_autocompletion_context_and_prefix_resolution(self):
+        from workbuddy_cli.agent_client import WorkBuddyAgentClient
+        from workbuddy_cli.cli import (
+            get_subcommand_completions,
+            resolve_slash_command_name,
+            show_context_dashboard,
+        )
+
+        client = WorkBuddyAgentClient(self.config)
+
+        # Prefix resolution: /cont -> /context, /m -> ambiguous (/mode, /model)
+        resolved_cont, _ = resolve_slash_command_name("/cont")
+        self.assertEqual(resolved_cont, "/context")
+        resolved_m, cands_m = resolve_slash_command_name("/m")
+        self.assertIsNone(resolved_m)
+        self.assertIn("/mode", cands_m)
+        self.assertIn("/model", cands_m)
+
+        # Level-2 completions for /mode, /style, /model, /profile, /compact, /team
+        mode_cands = [c[0] for c in get_subcommand_completions("/mode", [], "", client)]
+        self.assertEqual(set(mode_cands), {"craft", "ask", "expert", "plan"})
+
+        style_cands = [c[0] for c in get_subcommand_completions("/style", ["sar"], "sar", client)]
+        self.assertEqual(style_cands, ["sarcastic"])
+
+        team_cands = [c[0] for c in get_subcommand_completions("/team", ["Soft"], "Soft", client)]
+        self.assertIn("SoftwareCompany", team_cands)
+
+        # Level-3 completions for `/team SoftwareCompany ` -> spawn / role-switch
+        team_mode_cands = [c[0] for c in get_subcommand_completions("/team", ["SoftwareCompany"], "", client)]
+        self.assertEqual(set(team_mode_cands), {"spawn", "role-switch"})
+
+        # /context dashboard data verification
+        ctx_info = show_context_dashboard(self.config, client, [])
+        self.assertEqual(ctx_info["model"], "deepseek-chat")
+        self.assertGreater(ctx_info["total_tokens"], 500)
+
 
 if __name__ == "__main__":
     unittest.main()

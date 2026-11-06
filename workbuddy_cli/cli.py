@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """
 Main CLI & Interactive REPL entrypoint for `workbuddy-cli` (`workbuddy` / `wb`).
+Features:
+- Real-time interactive slash-command dropdown menu & multi-level `Tab` autocomplete
+  powered by `prompt_toolkit` (`WorkBuddySlashCompleter` + `PromptSession`).
+- Rich `/context` (and `/status`) dashboard displaying real-time token accounting,
+  `AGENTS.md` mount status, `SOUL.md` 3-tier memory, and compaction threshold gauges.
+- Smart prefix matching for slash commands (e.g. `/cont` -> `/context`).
 """
 
 import argparse
 import json
 import sys
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from rich.console import Console
 from rich.panel import Panel
@@ -15,10 +21,17 @@ from rich.table import Table
 from rich.markdown import Markdown
 
 from . import __version__
-from .config import WorkBuddyConfig, VALID_MODES, VALID_STYLES, VALID_PROMPT_PROFILES, ASSETS_DIR
-from .memory import SoulMemoryManager, append_invisible_run_marker, decode_invisible_run_marker
+from .config import (
+    WorkBuddyConfig,
+    VALID_MODES,
+    VALID_STYLES,
+    VALID_PROMPT_PROFILES,
+    ASSETS_DIR,
+    discover_agents_md,
+)
+from .memory import SoulMemoryManager
 from .prompt_engine import PromptEngine
-from .compactor import ThreeStageCompactor, HistoryEngineeringCompactor, FIXED_CONTEXT_SUMMARY_PROMPT
+from .compactor import ThreeStageCompactor, HistoryEngineeringCompactor
 from .skill_router import SkillRouter
 from .agent_client import WorkBuddyAgentClient
 from .tools.office_suite import (
@@ -37,6 +50,196 @@ from .tools.visualizer import generate_architecture_svg_widget
 console = Console()
 
 
+SLASH_COMMANDS_META: List[Tuple[str, str, str]] = [
+    ("/context", "/context", "查看精细上下文账本 (System/AGENTS.md/History Token 占比与压缩水位线)"),
+    ("/status", "/status", "查看当前会话状态、模型配置与上下文账本 (同 /context)"),
+    ("/mode", "/mode <craft|ask|expert|plan>", "切换工作模式 (craft 编码执行 | ask 只读问答 | expert 专家 | plan 规划)"),
+    ("/style", "/style <style_name>", "切换 7 种说话风格 (含 sarcastic 毒舌死党 | efficient | professional 等)"),
+    ("/model", "/model <model_name>", "切换大模型 (deepseek-chat | deepseek-reasoner | deepseek-flash | deepseek-v4-pro)"),
+    ("/profile", "/profile <lean|full>", "切换提示词档位 (lean 2.6K 精简按需 vs full 33K 腾讯原版 .tpl)"),
+    ("/team", "/team [TeamId] [spawn|role-switch] <task>", "召唤『齐活林』10大官方谐音梗专家团 (spawn 二传手 vs role-switch 原地换帽)"),
+    ("/compact", "/compact [--engineering-only|--llm]", "执行三级上下文压缩 (含假完工催眠 Bug 修复)"),
+    ("/research", "/research <topic>", "运行五阶段 Deep Research 深度研究 (2/3 怀疑论杠精陪审团)"),
+    ("/critic", "/critic <file_or_text>", "运行六步对抗式盲审引擎 (强制扣分配额 min_issues=2, min_instructions=3)"),
+    ("/docx", "/docx <title> [out.docx]", "三阶段 GB/T 9704 红头公文生成 + 零 LLM review_html.py AST 门禁"),
+    ("/recalc", "/recalc <xlsx_path>", "Excel 公式重算回填 <v> 缓存 (解决微信预览空白) + GB 45438 AIGC 隐式水印"),
+    ("/skills", "/skills [query|init|validate]", "0.8*Cosine + 0.2*BM25 动态技能检索与 skill-creator 创建校验"),
+    ("/soul", "/soul [status|onboard|reset]", "查看/孵化/重置 SOUL.md + IDENTITY.md + USER.md + 三层记忆"),
+    ("/enhance", "/enhance <raw_prompt>", "一键小闪光图标提示词增强 (llm:enhancePrompt)"),
+    ("/clear", "/clear", "清空当前会话历史消息"),
+    ("/help", "/help", "显示所有斜杠命令与快捷键帮助"),
+    ("/quit", "/quit", "退出 workbuddy-cli"),
+]
+
+MODEL_CANDIDATES: List[Tuple[str, str]] = [
+    ("deepseek-chat", "DeepSeek 默认主力对话/Agent 模型 (极速响应)"),
+    ("deepseek-reasoner", "DeepSeek 深度思考推理模型 (输出 reasoning_content 思维链)"),
+    ("deepseek-flash", "DeepSeek-V4.1-Flash (1M 上下文原生多模态)"),
+    ("deepseek-v4-pro", "DeepSeek-V4-Pro (1M 上下文旗舰底座)"),
+]
+
+MODE_CANDIDATES: List[Tuple[str, str]] = [
+    ("craft", "Agent 读写执行模式 (You say, I do — 全套 10 大工具可用)"),
+    ("ask", "只读问答分析模式 (Talk only, hands off — 禁用写文件与命令执行)"),
+    ("expert", "领域专家模式 (启用专家身份模板与对抗审查规范)"),
+    ("plan", "架构规划模式 (Think first, do second)"),
+]
+
+PROFILE_CANDIDATES: List[Tuple[str, str]] = [
+    ("lean", "精简高信噪比模式 (~2.6K tokens，节省 91.8% 僵尸底仓，按需挂载 Skill)"),
+    ("full", "腾讯 WorkBuddy 原版全量 .tpl 模式 (~23K-33K tokens，1:1 逆向复刻)"),
+]
+
+COMPACT_CANDIDATES: List[Tuple[str, str]] = [
+    ("--engineering-only", "第一阶段纯规则剪刀 (剥离工具大输出与代码参数，0 LLM 消耗)"),
+    ("--llm", "第二阶段 DeepSeek 智能结构化二压 (已修复假完工催眠乌龙 Bug)"),
+]
+
+SOUL_CANDIDATES: List[Tuple[str, str]] = [
+    ("status", "查看 SOUL.md 孵化状态与三层记忆路径"),
+    ("onboard", "完成认主孵化并自删 BOOTSTRAP.md: /soul onboard <AgentName> <UserName>"),
+    ("reset", "重置 SOUL.md / IDENTITY.md / USER.md 并恢复 BOOTSTRAP.md"),
+]
+
+
+def get_subcommand_completions(cmd: str, arg_tokens: List[str], current_word: str, client: WorkBuddyAgentClient) -> List[Tuple[str, str]]:
+    """
+    Returns `(completion_text, display_meta)` pairs for 1st, 2nd, and 3rd level slash command arguments.
+    """
+    cmd = cmd.lower()
+    # Determine which argument slot the user is currently typing (0-indexed after command)
+    slot_idx = len(arg_tokens) - 1 if current_word else len(arg_tokens)
+    prefix = current_word.lower()
+
+    candidates: List[Tuple[str, str]] = []
+
+    if cmd == "/mode" and slot_idx == 0:
+        candidates = MODE_CANDIDATES
+    elif cmd == "/style" and slot_idx == 0:
+        styles_map = client.prompt_engine.list_styles()
+        candidates = [(k, v) for k, v in styles_map.items()]
+    elif cmd == "/model" and slot_idx == 0:
+        candidates = MODEL_CANDIDATES
+    elif cmd == "/profile" and slot_idx == 0:
+        candidates = PROFILE_CANDIDATES
+    elif cmd == "/compact" and slot_idx == 0:
+        candidates = COMPACT_CANDIDATES
+    elif cmd == "/soul" and slot_idx == 0:
+        candidates = SOUL_CANDIDATES
+    elif cmd == "/skills" and slot_idx == 0:
+        candidates = [
+            ("list", "列出全部内置与自定义 Skills"),
+            ("init", "使用 skill-creator 创建新技能: /skills init <skill-name>"),
+            ("validate", "运行增强版 quick_validate.py 校验技能目录"),
+        ] + [(s.id, s.description[:50]) for s in client.skill_router.load_builtin_skills()]
+    elif cmd == "/team":
+        if slot_idx == 0:
+            teams = client.team_engine.list_expert_teams()
+            candidates = [("list", "列出全部 10 个官方专家团与谐音梗花名阵容")] + [
+                (t["id"], f"{t['lead_name']} | {t['members_summary'][:42]}") for t in teams
+            ]
+        elif slot_idx == 1:
+            candidates = [
+                ("spawn", "包工头星型中转模式 (齐活林 <teammate-message> 二传手复制粘贴，双倍 Token 税)"),
+                ("role-switch", "单上下文原地 [角色切换] 独角戏模式 (腾讯内部推荐，0 传话损耗)"),
+            ]
+
+    return [(text, meta) for text, meta in candidates if text.lower().startswith(prefix)]
+
+
+def build_prompt_session(client: WorkBuddyAgentClient):
+    """
+    Builds a `prompt_toolkit.PromptSession` with real-time `/` dropdown menu and `Tab` completion.
+    Gracefully returns `None` if `prompt_toolkit` is unavailable or terminal is not a TTY.
+    """
+    try:
+        from prompt_toolkit import PromptSession
+        from prompt_toolkit.completion import Completer, Completion
+        from prompt_toolkit.key_binding import KeyBindings
+        from prompt_toolkit.styles import Style
+    except ImportError:
+        return None
+
+    class WorkBuddySlashCompleter(Completer):
+        def get_completions(self, document, complete_event):
+            text_before = document.text_before_cursor
+            stripped = text_before.lstrip()
+            if not stripped.startswith("/"):
+                return
+
+            has_trailing_space = text_before.endswith(" ")
+            parts = stripped.split()
+            if not parts:
+                return
+
+            # Level 1: Completing the `/command` itself
+            if len(parts) == 1 and not has_trailing_space:
+                cmd_prefix = parts[0].lower()
+                for cmd_name, usage, desc in SLASH_COMMANDS_META:
+                    if cmd_name.startswith(cmd_prefix):
+                        yield Completion(
+                            text=cmd_name,
+                            start_position=-len(parts[0]),
+                            display=usage,
+                            display_meta=desc,
+                        )
+                return
+
+            # Level 2 & 3: Completing arguments after `/command `
+            cmd_name = parts[0].lower()
+            raw_args = parts[1:]
+            current_word = "" if has_trailing_space else raw_args[-1]
+            sub_candidates = get_subcommand_completions(cmd_name, raw_args, current_word, client)
+            for cand_text, cand_meta in sub_candidates:
+                yield Completion(
+                    text=cand_text,
+                    start_position=-len(current_word),
+                    display=cand_text,
+                    display_meta=cand_meta,
+                )
+
+    kb = KeyBindings()
+
+    @kb.add("/")
+    def _on_slash(event):
+        buf = event.app.current_buffer
+        buf.insert_text("/")
+        if buf.text.strip().startswith("/"):
+            buf.start_completion(select_first=False)
+
+    @kb.add(" ")
+    def _on_space(event):
+        buf = event.app.current_buffer
+        buf.insert_text(" ")
+        if buf.text.lstrip().startswith("/"):
+            buf.start_completion(select_first=False)
+
+    @kb.add("tab")
+    def _on_tab(event):
+        buf = event.app.current_buffer
+        if buf.complete_state:
+            buf.complete_next()
+        else:
+            buf.start_completion(select_first=True)
+
+    pt_style = Style.from_dict(
+        {
+            "prompt": "ansicyan bold",
+            "completion-menu.completion": "bg:#1e1e2e #cdd6f4",
+            "completion-menu.completion.current": "bg:#89b4fa #11111b bold",
+            "completion-menu.meta.completion": "bg:#181825 #a6adc8",
+            "completion-menu.meta.completion.current": "bg:#89b4fa #11111b",
+        }
+    )
+
+    return PromptSession(
+        completer=WorkBuddySlashCompleter(),
+        complete_while_typing=True,
+        key_bindings=kb,
+        style=pt_style,
+    )
+
+
 def print_banner(config: WorkBuddyConfig, memory_mgr: SoulMemoryManager) -> None:
     id_vars = memory_mgr.collect_identity_vars()
     onboarding_tag = (
@@ -45,39 +248,143 @@ def print_banner(config: WorkBuddyConfig, memory_mgr: SoulMemoryManager) -> None
         else "[bold green]INCUBATED (SOUL.md active)[/bold green]"
     )
     tier = config.get_model_complexity_tier()
+    agents_paths = discover_agents_md(Path(config.workspace_dir))
+    agents_tag = (
+        f"[bold green]Mounted ({agents_paths[0].name})[/bold green]"
+        if (config.load_agents_md and agents_paths)
+        else "[dim]None[/dim]"
+    )
     banner_text = (
         f"[bold cyan]WorkBuddy Open-Source CLI[/bold cyan] v{__version__}  "
         f"| Model: [bold magenta]{config.model}[/bold magenta] (Visualizer Tier: [bold]{tier}[/bold])\n"
         f"Mode: [bold]{config.mode}[/bold] | Style: [bold]{config.style}[/bold] | "
-        f"Prompt Profile: [bold]{config.prompt_profile}[/bold] | Soul: {onboarding_tag}\n"
-        f"Type [bold green]/help[/bold green] for slash commands, or ask anything directly."
+        f"Profile: [bold]{config.prompt_profile}[/bold] | AGENTS.md: {agents_tag} | Soul: {onboarding_tag}\n"
+        f"💡 Type [bold green]/[/bold green] for live command dropdown menu, [bold green]Tab[/bold green] to autocomplete, or [bold green]/context[/bold green] to inspect token budget."
     )
     console.print(Panel(banner_text, border_style="cyan", expand=False))
 
 
 def show_slash_help() -> None:
-    table = Table(title="WorkBuddy-CLI Slash Commands", show_header=True, header_style="bold cyan")
+    table = Table(title="WorkBuddy-CLI Slash Commands (Type `/` + `Tab` to autocomplete)", show_header=True, header_style="bold cyan")
     table.add_column("Command", style="green", no_wrap=True)
     table.add_column("Description", style="white")
-    rows = [
-        ("/mode <craft|ask|expert|plan>", "Switch working mode (Agent Craft, Read-Only Ask, Expert, Plan)"),
-        ("/style <style_name>", f"Switch tone style: {', '.join(VALID_STYLES)} (includes sarcastic roaster!)"),
-        ("/model <model_name>", "Switch LLM model (e.g. deepseek-chat, deepseek-reasoner)"),
-        ("/profile <lean|full>", "Switch prompt profile: lean (~2.2K on-demand) vs full (~33K original .tpl)"),
-        ("/team [TeamId] [spawn|role-switch] <task>", "Run Expert Team (齐活林/许清楚/高见远/寇豆码/严过关) in hub-spawn or in-place role-switch mode"),
-        ("/compact [--engineering-only|--llm]", "Run 3-stage context compactor (with fixed task-completion hypnosis bug)"),
-        ("/research <topic>", "Run 5-phase Deep Research workflow with 2/3 skeptical jury verification"),
-        ("/critic <file_or_text>", "Run 6-step Critic-Generator blind review (mandatory min_issues=2, min_instructions=3)"),
-        ("/docx <title> [out.docx]", "Run 3-stage GB/T 9704 red-header Docx pipeline + 0-LLM review_html AST gate"),
-        ("/recalc <xlsx_path>", "Recalculate Excel formulas (<f> -> <v> cache) + GB 45438-2025 AIGC implicit label"),
-        ("/skills [query|init|validate]", "Search skills via 0.8*Cosine+0.2*BM25 or manage skills via skill-creator"),
-        ("/soul [status|onboard|reset]", "Inspect or onboard SOUL.md + IDENTITY.md + USER.md + 3-tier memory"),
-        ("/enhance <raw_prompt>", "Rewrite prompt via WorkBuddy's sparkle Prompt Enhancer (llm:enhancePrompt)"),
-        ("/quit, /exit", "Exit interactive session"),
-    ]
-    for cmd, desc in rows:
-        table.add_row(cmd, desc)
+    for _cmd, usage, desc in SLASH_COMMANDS_META:
+        table.add_row(usage, desc)
     console.print(table)
+
+
+def _render_progress_bar(pct: float, width: int = 28) -> str:
+    clamped = max(0.0, min(100.0, pct))
+    filled = int(round((clamped / 100.0) * width))
+    empty = width - filled
+    color = "green" if clamped < 45.0 else ("yellow" if clamped < 75.0 else "red")
+    return f"[{color}]{'█' * filled}[/{color}][dim]{'░' * empty}[/dim] [bold {color}]{clamped:.1f}%[/bold {color}]"
+
+
+def show_context_dashboard(
+    config: WorkBuddyConfig,
+    client: WorkBuddyAgentClient,
+    history: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Renders the `/context` (and `/status`) token & memory inspection dashboard.
+    """
+    footprint = client.prompt_engine.compare_token_footprint()
+    full_sys_prompt = client.prompt_engine.render_system_prompt()
+    sys_tokens = HistoryEngineeringCompactor.estimate_tokens(full_sys_prompt)
+    agents_tokens = footprint["agents_md_tokens"]
+    base_sys_tokens = max(0, sys_tokens - agents_tokens)
+
+    hist_json = json.dumps(history, ensure_ascii=False) if history else ""
+    hist_tokens = HistoryEngineeringCompactor.estimate_tokens(hist_json) if history else 0
+    eng_compacted = HistoryEngineeringCompactor.compact(history) if history else {"estimatedTokens": 0}
+    eng_tokens = eng_compacted["estimatedTokens"]
+
+    total_used_tokens = sys_tokens + hist_tokens
+    budget = config.max_context_tokens
+    suff_threshold = int(budget * config.engineering_compact_sufficiency_pct)
+    pre_msg_threshold = int(budget * config.pre_message_compact_pct)
+    emerg_threshold = int(budget * config.emergency_compact_pct)
+
+    agents_paths = discover_agents_md(Path(config.workspace_dir))
+    agents_path_str = str(agents_paths[0]) if (config.load_agents_md and agents_paths) else "(not mounted)"
+    iv = client.memory_manager.collect_identity_vars()
+
+    table = Table(title="📊 WorkBuddy-CLI Context & Token Ledger (/context)", show_header=True, header_style="bold cyan")
+    table.add_column("Component (模块)", style="cyan", no_wrap=True)
+    table.add_column("Tokens / Status (账本读数)", style="white")
+    table.add_column("Notes / Path (详情说明)", style="dim")
+
+    table.add_row(
+        "Active Model & Tier",
+        f"[bold magenta]{config.model}[/bold magenta] (Tier: [bold]{config.get_model_complexity_tier()}[/bold])",
+        f"Endpoint: {config.base_url}",
+    )
+    table.add_row(
+        "Mode / Style / Profile",
+        f"mode=[bold]{config.mode}[/bold] | style=[bold]{config.style}[/bold] | profile=[bold]{config.prompt_profile}[/bold]",
+        f"Savings vs WorkBuddy Desktop (32,739 tok): {footprint['token_savings_vs_desktop_pct']}%",
+    )
+    table.add_row(
+        "Base System Prompt",
+        f"[bold]{base_sys_tokens:,}[/bold] tokens",
+        f"Template ({config.prompt_profile}) + SOUL.md + 3-Tier Memory + Tone Style",
+    )
+    table.add_row(
+        "Mounted AGENTS.md",
+        f"[bold green]{agents_tokens:,}[/bold green] tokens" if agents_tokens else "[dim]0 tokens[/dim]",
+        agents_path_str,
+    )
+    table.add_row(
+        "Conversation History",
+        f"[bold yellow]{hist_tokens:,}[/bold yellow] tokens ({len(history)} items)",
+        f"After zero-LLM Engineering Scissors: {eng_tokens:,} tokens",
+    )
+    table.add_row(
+        "Total Active Context",
+        f"[bold]{total_used_tokens:,}[/bold] / {budget:,} tokens  {_render_progress_bar(total_used_tokens / budget * 100)}",
+        "Total Prefill input per turn",
+    )
+    table.add_row(
+        "15% Engineering Compact Line",
+        f"{suff_threshold:,} tokens  {_render_progress_bar(hist_tokens / max(1, suff_threshold) * 100)}",
+        "Below this line, /compact skips LLM & uses 0-cost rule scissors",
+    )
+    table.add_row(
+        "50% PreMessage / 90% Emergency",
+        f"PreMsg: {pre_msg_threshold:,} tok | Emergency: {emerg_threshold:,} tok",
+        f"Soul Mode: {iv['WorkspaceIdentityMode']} | Daily Log: {client.memory_manager.daily_log_path().name}",
+    )
+
+    console.print(table)
+    return {
+        "model": config.model,
+        "mode": config.mode,
+        "style": config.style,
+        "profile": config.prompt_profile,
+        "base_system_tokens": base_sys_tokens,
+        "agents_md_tokens": agents_tokens,
+        "agents_md_path": agents_path_str,
+        "history_items": len(history),
+        "history_tokens": hist_tokens,
+        "total_tokens": total_used_tokens,
+        "max_context_tokens": budget,
+    }
+
+
+def resolve_slash_command_name(raw_cmd: str) -> Tuple[Optional[str], List[str]]:
+    """
+    Resolves exact or unique prefix matches for slash commands (e.g. `/cont` -> `/context`).
+    Returns `(resolved_cmd, matching_candidates)`.
+    """
+    cmd_lower = raw_cmd.lower()
+    all_cmds = [c[0] for c in SLASH_COMMANDS_META] + ["/exit", "/q"]
+    if cmd_lower in all_cmds:
+        return cmd_lower, [cmd_lower]
+    matches = [c for c in all_cmds if c.startswith(cmd_lower)]
+    if len(matches) == 1:
+        return matches[0], matches
+    return None, matches
 
 
 def handle_slash_command(
@@ -88,8 +395,21 @@ def handle_slash_command(
 ) -> bool:
     """Returns True if session should continue, False if exiting."""
     parts = raw_line.strip().split(maxsplit=1)
-    cmd = parts[0].lower()
+    raw_cmd = parts[0].lower()
     arg = parts[1].strip() if len(parts) > 1 else ""
+
+    cmd, candidates = resolve_slash_command_name(raw_cmd)
+    if cmd is None:
+        if candidates:
+            console.print(
+                f"[yellow]Ambiguous slash command '{raw_cmd}'. Did you mean: "
+                f"[bold cyan]{', '.join(candidates)}[/bold cyan]? (Press Tab to autocomplete)[/yellow]"
+            )
+        else:
+            console.print(
+                f"[yellow]Unknown slash command: {raw_cmd}. Type [bold green]/help[/bold green] or press [bold green]/[/bold green] to see available commands.[/yellow]"
+            )
+        return True
 
     if cmd in ("/quit", "/exit", "/q"):
         console.print("[dim]Goodbye from WorkBuddy-CLI![/dim]")
@@ -97,6 +417,16 @@ def handle_slash_command(
 
     if cmd == "/help":
         show_slash_help()
+        return True
+
+    if cmd in ("/context", "/status"):
+        show_context_dashboard(config, client, history)
+        return True
+
+    if cmd == "/clear":
+        count = len(history)
+        history.clear()
+        console.print(f"[green]✓ Cleared {count} conversation history items.[/green]")
         return True
 
     if cmd == "/mode":
@@ -130,7 +460,7 @@ def handle_slash_command(
                 f"(Complexity Tier: {config.get_model_complexity_tier()})"
             )
         else:
-            console.print(f"Current model: [bold]{config.model}[/bold]")
+            console.print(f"Current model: [bold]{config.model}[/bold]. Candidates: {', '.join(m[0] for m in MODEL_CANDIDATES)}")
         return True
 
     if cmd == "/profile":
@@ -168,12 +498,11 @@ def handle_slash_command(
         return True
 
     if cmd == "/skills":
-        if not arg:
+        if not arg or arg == "list":
             for item in client.skill_router.load_builtin_skills():
                 console.print(f"- [bold cyan]{item.id}[/bold cyan]: {item.description}")
         elif arg.startswith("init "):
             sname = arg[5:].strip()
-            from .assets.skills import skill_creator  # fallback via subprocess
             script = ASSETS_DIR / "skills" / "skill-creator" / "scripts" / "init_skill.py"
             import subprocess
             proc = subprocess.run([sys.executable, str(script), sname, "--path", str(Path.cwd())], text=True, capture_output=True)
@@ -288,7 +617,6 @@ def handle_slash_command(
         console.print(Markdown(res["markdown_report"]))
         return True
 
-    console.print(f"[yellow]Unknown slash command: {cmd}. Type /help for available commands.[/yellow]")
     return True
 
 
@@ -336,8 +664,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--style", choices=VALID_STYLES, help="Communication tone style (includes sarcastic)")
     parser.add_argument("--model", help="Model name (default: deepseek-chat)")
     parser.add_argument("--reasoner", action="store_true", help="Shortcut to use deepseek-reasoner")
-    parser.add_argument("--prompt-profile", choices=VALID_PROMPT_PROFILES, help="Prompt profile: lean (~2.2K) vs full (~33K .tpl)")
+    parser.add_argument("--prompt-profile", choices=VALID_PROMPT_PROFILES, help="Prompt profile: lean (~2.6K) vs full (~33K .tpl)")
     parser.add_argument("--token-audit", action="store_true", help="Compare startup token footprint (lean vs full 33K WorkBuddy)")
+    parser.add_argument("--context", action="store_true", help="Show the /context token & memory dashboard and exit")
     parser.add_argument("--render-prompt", action="store_true", help="Render and print the assembled System Prompt")
     parser.add_argument("--match-skill", metavar="QUERY", help="Run 0.8*Cosine + 0.2*BM25 skill router on QUERY")
     parser.add_argument("--check-html", metavar="HTML_FILE", help="Run 0-LLM review_html.py AST gatekeeper on HTML file")
@@ -378,6 +707,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.token_audit:
         audit = client.prompt_engine.compare_token_footprint()
         console.print_json(data=audit)
+        return 0
+
+    if args.context:
+        show_context_dashboard(config, client, [])
         return 0
 
     if args.render_prompt:
@@ -502,12 +835,20 @@ def main(argv: Optional[List[str]] = None) -> int:
         console.print(Markdown(turn["reply"]))
         return 0
 
-    # Interactive REPL
+    # Interactive REPL with prompt_toolkit live `/` dropdown & Tab autocomplete
     print_banner(config, client.memory_manager)
     history: List[Dict[str, Any]] = []
+    pt_session = build_prompt_session(client) if sys.stdin.isatty() else None
+
     while True:
         try:
-            user_in = console.input(f"\n[bold cyan]wb ({config.mode}/{config.style})>[/bold cyan] ").strip()
+            if pt_session is not None:
+                print()
+                user_in = pt_session.prompt(
+                    [("class:prompt", f"wb ({config.mode}/{config.style})> ")],
+                ).strip()
+            else:
+                user_in = console.input(f"\n[bold cyan]wb ({config.mode}/{config.style})>[/bold cyan] ").strip()
         except (EOFError, KeyboardInterrupt):
             console.print("\n[dim]Exiting WorkBuddy-CLI.[/dim]")
             break

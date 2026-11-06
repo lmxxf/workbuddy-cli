@@ -9,3 +9,5 @@ dist/
 outputs/
 *.env
 config.local.json
+.claude
+AGENTS.md

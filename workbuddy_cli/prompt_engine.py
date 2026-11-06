@@ -302,9 +302,17 @@ The style affects HOW information is delivered, not WHAT information is delivere
         return "\n\n".join(p for p in parts if p)
 
     def compare_token_footprint(self) -> Dict[str, Any]:
-        """Compares startup token overhead between `lean` profile and original WorkBuddy `full` profile."""
-        lean_prompt = self.render_system_prompt(profile="lean")
-        full_prompt = self.render_system_prompt(profile="full")
+        """Compares startup token overhead between `lean` profile and original WorkBuddy `full` profile (excluding external AGENTS.md)."""
+        orig_flag = self.config.load_agents_md
+        try:
+            self.config.load_agents_md = False
+            lean_prompt = self.render_system_prompt(profile="lean")
+            full_prompt = self.render_system_prompt(profile="full")
+        finally:
+            self.config.load_agents_md = orig_flag
+
+        agents_block = self.load_agents_md_block()
+        agents_tokens = HistoryEngineeringCompactor.estimate_tokens(agents_block)
         lean_tokens = HistoryEngineeringCompactor.estimate_tokens(lean_prompt)
         full_tokens = HistoryEngineeringCompactor.estimate_tokens(full_prompt)
         # Note: Original WorkBuddy desktop also injects ~20K tokens of 100+ MCP/tool schemas on startup (= 32,739 total)
@@ -314,6 +322,7 @@ The style affects HOW information is delivered, not WHAT information is delivere
             "lean_tokens": lean_tokens,
             "full_tpl_chars": len(full_prompt),
             "full_tpl_tokens": full_tokens,
+            "agents_md_tokens": agents_tokens,
             "workbuddy_desktop_hello_tokens": wb_desktop_baseline,
             "token_savings_vs_desktop_pct": round((1.0 - lean_tokens / wb_desktop_baseline) * 100, 1),
         }
