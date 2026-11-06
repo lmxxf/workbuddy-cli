@@ -118,7 +118,7 @@ class SessionManager:
                         "created_at": data.get("created_at", ""),
                         "updated_at": data.get("updated_at", ""),
                         "workspace_dir": data.get("workspace_dir", ""),
-                        "model": data.get("model", "deepseek-chat"),
+                        "model": data.get("model", "deepseek-flash"),
                         "mode": data.get("mode", "craft"),
                         "style": data.get("style", "efficient"),
                         "thinking_effort": data.get("thinking_effort", "off"),

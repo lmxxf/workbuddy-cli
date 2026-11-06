@@ -1,6 +1,6 @@
 """
 Configuration management for workbuddy-cli.
-First-class support for DeepSeek (`deepseek-chat` / `deepseek-reasoner`),
+First-class support for DeepSeek (`deepseek-flash` / `deepseek-v4-pro`),
 plus OpenAI / Anthropic compatible endpoints via environment variables
 or ~/.workbuddy-cli/config.json.
 """
@@ -137,23 +137,20 @@ class WorkBuddyConfig:
 
     def get_model_display_name(self) -> str:
         m = (self.model or "").lower()
-        if m in ("deepseek-flash", "deepseek-v4.1-flash"):
-            return f"{self.model} (DeepSeek-V4.1-Flash)"
+        if m == "deepseek-flash":
+            return "deepseek-flash (DeepSeek-V4.1-Flash-1017)"
         if m == "deepseek-v4-pro":
             return "deepseek-v4-pro (DeepSeek-V4-Pro)"
         return self.model
 
     def resolve_api_model_id(self) -> str:
-        """Normalizes friendly aliases like `deepseek-v4.1-flash` to DeepSeek API's `deepseek-flash`."""
-        m = (self.model or "deepseek-flash").strip()
-        if m.lower() == "deepseek-v4.1-flash":
-            return "deepseek-flash"
-        return m
+        """Returns the active DeepSeek / OpenAI model ID (`deepseek-flash` or `deepseek-v4-pro`)."""
+        return (self.model or "deepseek-flash").strip()
 
     def get_model_complexity_tier(self) -> str:
         """
         Replicates WorkBuddy's 'Model-aware complexity gating' hierarchy:
-        - Claude, GPT, DeepSeek-Chat/Reasoner/V3/V4: No ceiling ('high')
+        - Claude, GPT, DeepSeek (`deepseek-flash` / `deepseek-v4-pro`): No ceiling ('high')
         - GLM, KIMI: Moderate complexity ('moderate')
         - Hunyuan, Minimax: Minimal complexity ('minimal')
         """
@@ -170,9 +167,6 @@ class WorkBuddyConfig:
         API payload fields (`thinking` & `reasoning_effort`).
         """
         lvl = (self.thinking_effort or "off").lower()
-        if "reasoner" in (self.model or "").lower() and lvl == "off":
-            lvl = "high"
-
         if lvl == "off":
             return {"thinking": {"type": "disabled"}}
         if lvl == "low":

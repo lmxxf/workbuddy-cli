@@ -1,8 +1,8 @@
 """
 First-Class DeepSeek / OpenAI Agentic Tool-Calling Client for workbuddy-cli.
 Supports:
-- `deepseek-chat` and `deepseek-reasoner` (with `reasoning_content` extraction)
-- Full 10-tool Agentic Loop:
+- `deepseek-flash` (DeepSeek-V4.1-Flash-1017) and `deepseek-v4-pro` (DeepSeek-V4-Pro)
+- Full 12-tool Agentic Loop:
   1. `bash`: Execute shell commands inside Safe-Delete Trash-intercepted sandbox
   2. `read_file`: Read file contents with optional line ranges
   3. `write_file`: Create or overwrite files and log to `.workbuddy/YYYY-MM-DD.md`
@@ -294,11 +294,9 @@ class WorkBuddyAgentClient:
         }
         think_params = self.config.get_thinking_api_params()
         api_model = self.config.resolve_api_model_id()
-        if api_model == "deepseek-chat" and self.config.thinking_effort != "off":
-            api_model = "deepseek-flash"
         payload["model"] = api_model
         payload.update(think_params)
-        if "reasoner" not in self.config.model and think_params.get("thinking", {}).get("type") != "enabled":
+        if think_params.get("thinking", {}).get("type") != "enabled":
             payload["temperature"] = temperature
 
         with httpx.Client(timeout=90.0) as client:
@@ -502,7 +500,7 @@ class WorkBuddyAgentClient:
         on_tool_call: Optional[Callable[[str, str, str], None]] = None,
     ) -> Dict[str, Any]:
         """
-        Runs a complete multi-step Agentic turn against DeepSeek (`deepseek-chat` / `deepseek-reasoner`)
+        Runs a complete multi-step Agentic turn against DeepSeek (`deepseek-flash` / `deepseek-v4-pro`)
         or any OpenAI-compatible model, automatically recalling top skills via `RecallIndex`.
         """
         matched_skills_block = self.skill_router.build_matched_skills_prompt(user_input, top_k=2)
@@ -522,8 +520,6 @@ class WorkBuddyAgentClient:
         for _round in range(max_tool_rounds):
             api_messages = [{"role": "system", "content": sys_prompt}] + history
             api_model = self.config.resolve_api_model_id()
-            if api_model == "deepseek-chat" and self.config.thinking_effort != "off":
-                api_model = "deepseek-flash"
             payload: Dict[str, Any] = {
                 "model": api_model,
                 "messages": api_messages,

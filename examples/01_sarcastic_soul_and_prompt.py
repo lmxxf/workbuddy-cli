@@ -50,7 +50,7 @@ def main() -> None:
         )
 
         cfg = WorkBuddyConfig(
-            model="deepseek-v4.1-flash",
+            model="deepseek-flash",
             mode="craft",
             style="sarcastic",
             prompt_profile="lean",

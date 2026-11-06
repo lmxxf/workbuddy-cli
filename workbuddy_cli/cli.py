@@ -65,7 +65,7 @@ SLASH_COMMANDS_META: List[Tuple[str, str, str]] = [
     ("/effort", "/effort <off|low|medium|high|max>", "控制思维链长短档位 (同 /think: off | low | medium | high | max)"),
     ("/mode", "/mode <craft|ask|expert|plan>", "切换工作模式 (craft 编码执行 | ask 只读问答 | expert 专家 | plan 规划)"),
     ("/style", "/style <style_name>", "切换 7 种说话风格 (含 sarcastic 毒舌死党 | efficient | professional 等)"),
-    ("/model", "/model <model_name>", "切换大模型 (deepseek-chat | deepseek-reasoner | deepseek-flash | deepseek-v4-pro)"),
+    ("/model", "/model <deepseek-flash|deepseek-v4-pro>", "切换 DeepSeek 官方大模型 (deepseek-flash [V4.1-Flash] | deepseek-v4-pro [V4-Pro])"),
     ("/profile", "/profile <lean|full>", "切换提示词档位 (lean 2.6K 精简按需 vs full 33K 腾讯原版 .tpl)"),
     ("/team", "/team [TeamId] [spawn|role-switch] <task>", "召唤『齐活林』10大官方谐音梗专家团 (spawn 二传手 vs role-switch 原地换帽)"),
     ("/compact", "/compact [--engineering-only|--llm]", "执行三级上下文压缩 (含假完工催眠 Bug 修复)"),
@@ -83,11 +83,8 @@ SLASH_COMMANDS_META: List[Tuple[str, str, str]] = [
 ]
 
 MODEL_CANDIDATES: List[Tuple[str, str]] = [
-    ("deepseek-flash", "DeepSeek-V4.1-Flash (默认一等公民，1M 上下文原生多模态)"),
-    ("deepseek-v4.1-flash", "DeepSeek-V4.1-Flash 显式别名 (自动映射至 deepseek-flash)"),
+    ("deepseek-flash", "DeepSeek-V4.1-Flash-1017 (Default 一等公民，1M 上下文原生多模态)"),
     ("deepseek-v4-pro", "DeepSeek-V4-Pro (1M 上下文旗舰底座)"),
-    ("deepseek-chat", "DeepSeek 经典对话端点"),
-    ("deepseek-reasoner", "DeepSeek 深度思考推理端点 (默认开启 high CoT)"),
 ]
 
 MODE_CANDIDATES: List[Tuple[str, str]] = [
@@ -1011,8 +1008,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"workbuddy-cli {__version__}")
     parser.add_argument("--mode", choices=VALID_MODES, help="Working mode (craft|ask|expert|plan)")
     parser.add_argument("--style", choices=VALID_STYLES, help="Communication tone style (includes sarcastic)")
-    parser.add_argument("--model", help="Model name (default: deepseek-chat)")
-    parser.add_argument("--reasoner", action="store_true", help="Shortcut to use deepseek-reasoner (sets thinking=high)")
+    parser.add_argument("--model", help="Model name (default: deepseek-flash [DeepSeek-V4.1-Flash-1017] | deepseek-v4-pro)")
+    parser.add_argument("--pro", action="store_true", help="Shortcut to use deepseek-v4-pro (DeepSeek-V4-Pro)")
     parser.add_argument("-t", "--thinking", choices=VALID_THINKING_LEVELS, help="Thinking / CoT length level: off|low|medium|high|max")
     parser.add_argument(
         "-r",
@@ -1057,10 +1054,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         config.style = args.style
     if args.model:
         config.model = args.model
-    if args.reasoner:
-        config.model = "deepseek-reasoner"
-        if not args.thinking:
-            config.thinking_effort = "high"
+    if args.pro:
+        config.model = "deepseek-v4-pro"
     if args.thinking:
         config.thinking_effort = args.thinking
     if args.prompt_profile:

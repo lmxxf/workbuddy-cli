@@ -25,7 +25,7 @@
    - **对外撑场面的“包工头多角色专家团”双倍 Token 爆炸**：拿同一个底座模型套上 **“交付总监齐活林、产品经理许清楚、架构师高见远、项目经理毕达成、程序员寇豆码、测试严过关”** 六顶谐音梗帽子，禁止团员直连，全靠包工头“齐活林”用 `<teammate-message>` 在中间复制粘贴当二传手（而腾讯程序员自己写核心 `tdoc-orchestrator.md` 第 150 行时却诚实地写着：`“⚠️ subagent 模式上下文隔离，效果不稳定，非必要不使用，推荐在单上下文喊 [角色切换]”`😂）。
 
 **`workbuddy-cli` (`wb`) 的设计目标**：
-- **DeepSeek-V4.1-Flash 一等公民 + 官方原生 `/v1/tools/search` 联网引擎**：默认直连 `DeepSeek-V4.1-Flash`（1M 上下文），原生集成 DeepSeek 最新上线的 **`POST /v1/tools/search` 与 `POST /v1/tools/fetch`**（直接复用同一个 DeepSeek API Key 鉴权，并带 DuckDuckGo Lite / Bing CN 免 Key 自动降级），支持完整 12 大 Agentic Tools 自动循环与 `/think <off|low|medium|high|max>` 思维链控长；
+- **DeepSeek-V4.1-Flash 一等公民 + 官方原生 `/v1/tools/search` 联网引擎**：默认直连 DeepSeek 官网最新的两个官方模型 ID —— **`deepseek-flash`（`DeepSeek-V4.1-Flash-1017`，默认）** 与 **`deepseek-v4-pro`（`DeepSeek-V4-Pro`）**，原生集成 DeepSeek **`POST /v1/tools/search` 与 `POST /v1/tools/fetch`**（直接复用同一个 DeepSeek API Key 鉴权，并带 DuckDuckGo Lite / Bing CN 免 Key 自动降级），支持完整 12 大 Agentic Tools 自动循环与 `/think <off|low|medium|high|max>` 思维链控长；
 - **去芜存菁（Lean Profile 节省 94%+ 开局 Token）**：默认启用按需挂载的 `lean` 模式（开局核心提示词仅 `~1,800` Tokens，通过本地 `0.8 * Cosine + 0.2 * BM25` `RecallIndex` 动态按需注入 Skill），同时保留 `--prompt-profile full` 1:1 复刻原版 `.tpl`；
 - **原生支持 `AGENTS.md` / `CLAUDE.md` 自动发现**：像 Codex / Antigravity CLI 一样自动识别项目根下的 `AGENTS.md`；
 - **修复原版三大工程 Bug**：
@@ -74,7 +74,7 @@ pip install -e .
 {
   "api_key": "sk-your-deepseek-api-key",
   "base_url": "https://api.deepseek.com/v1",
-  "model": "deepseek-v4.1-flash",
+  "model": "deepseek-flash",
   "mode": "craft",
   "style": "efficient",
   "thinking_effort": "off",

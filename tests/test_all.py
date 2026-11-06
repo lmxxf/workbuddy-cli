@@ -61,7 +61,7 @@ class TestWorkBuddyCLI(unittest.TestCase):
         self.ws_dir.mkdir(parents=True, exist_ok=True)
         self.config = WorkBuddyConfig(
             api_key="test-key",
-            model="deepseek-chat",
+            model="deepseek-flash",
             mode="craft",
             style="sarcastic",
             prompt_profile="lean",
@@ -128,7 +128,7 @@ class TestWorkBuddyCLI(unittest.TestCase):
         self.assertEqual(self.config.get_model_complexity_tier(), "minimal")
         self.config.model = "glm-4"
         self.assertEqual(self.config.get_model_complexity_tier(), "moderate")
-        self.config.model = "deepseek-chat"
+        self.config.model = "deepseek-flash"
         self.assertEqual(self.config.get_model_complexity_tier(), "high")
 
         # Token footprint comparison
@@ -408,6 +408,9 @@ shutil.rmtree({repr(str(victim_dir))})
         mode_cands = [c[0] for c in get_subcommand_completions("/mode", [], "", client)]
         self.assertEqual(set(mode_cands), {"craft", "ask", "expert", "plan"})
 
+        model_cands = [c[0] for c in get_subcommand_completions("/model", [], "", client)]
+        self.assertEqual(model_cands, ["deepseek-flash", "deepseek-v4-pro"])
+
         style_cands = [c[0] for c in get_subcommand_completions("/style", ["sar"], "sar", client)]
         self.assertEqual(style_cands, ["sarcastic"])
 
@@ -431,7 +434,7 @@ shutil.rmtree({repr(str(victim_dir))})
 
         # /context dashboard data verification
         ctx_info = show_context_dashboard(self.config, client, [])
-        self.assertEqual(ctx_info["model"], "deepseek-chat")
+        self.assertEqual(ctx_info["model"], "deepseek-flash")
         self.assertGreater(ctx_info["total_tokens"], 500)
 
     def test_12_session_persistence_and_resume_lifecycle(self):
