@@ -436,7 +436,7 @@ shutil.rmtree({repr(str(victim_dir))})
 
     def test_12_session_persistence_and_resume_lifecycle(self):
         from workbuddy_cli.agent_client import WorkBuddyAgentClient
-        from workbuddy_cli.cli import handle_slash_command, get_subcommand_completions
+        from workbuddy_cli.cli import handle_slash_command, get_subcommand_completions, replay_session_history
 
         client = WorkBuddyAgentClient(self.config)
         history = [
@@ -469,6 +469,7 @@ shutil.rmtree({repr(str(victim_dir))})
         self.assertEqual(self.config.style, "sarcastic")
         self.assertEqual(self.config.thinking_effort, "low")
         self.assertIn("兰斯洛特7788", history[0]["content"])
+        self.assertEqual(replay_session_history(history), 2)
 
 
 if __name__ == "__main__":

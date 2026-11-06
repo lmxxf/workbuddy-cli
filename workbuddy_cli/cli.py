@@ -303,6 +303,62 @@ def show_slash_help() -> None:
     console.print(table)
 
 
+def _strip_user_query_tags(text: str) -> str:
+    if not text:
+        return ""
+    import re
+    m = re.search(r"<user_query>\n?([\s\S]*?)\n?</user_query>", text)
+    return m.group(1).strip() if m else text.strip()
+
+
+def replay_session_history(history: List[Dict[str, Any]], max_items: int = 20) -> int:
+    """
+    Replays restored conversation messages to the terminal so the user can immediately
+    see what was discussed before continuing. Returns the number of rendered messages.
+    """
+    if not history:
+        return 0
+
+    total = len(history)
+    if total > max_items:
+        omitted = total - max_items
+        console.print(f"[dim]  ⋮ (已省略更早的 {omitted} 条历史消息，全部 {total} 条均已加载进模型上下文)[/dim]")
+        slice_items = history[-max_items:]
+    else:
+        slice_items = history
+
+    rendered_count = 0
+    for msg in slice_items:
+        role = msg.get("role", "")
+        if role == "user":
+            raw_content = msg.get("content", "")
+            if isinstance(raw_content, str):
+                if (msg.get("providerData") or {}).get("isSummary") or "<cb_summary>" in raw_content or "<conversation_history_summary>" in raw_content:
+                    console.print("[dim]📦 [Compacted Context Summary Loaded][/dim]")
+                else:
+                    clean_q = _strip_user_query_tags(raw_content)
+                    console.print(f"\n[bold cyan]🧑 You >[/bold cyan] {clean_q}")
+                rendered_count += 1
+        elif role == "assistant":
+            if msg.get("reasoning_content"):
+                r_text = str(msg["reasoning_content"]).strip()
+                preview = r_text if len(r_text) <= 300 else (r_text[:300] + " …")
+                console.print(Panel(preview, title="💭 Reasoning Trace", border_style="dim"))
+            for tc in msg.get("tool_calls") or []:
+                fn = tc.get("function") or {}
+                t_name = fn.get("name", "tool")
+                t_args = str(fn.get("arguments", ""))[:100]
+                console.print(f"  [dim]🔧 Tool Call:[/dim] [bold yellow]{t_name}[/bold yellow]({t_args})")
+            content = (msg.get("content") or "").strip()
+            if content:
+                console.print("[bold green]🤖 WorkBuddy >[/bold green]")
+                console.print(Markdown(content))
+            rendered_count += 1
+
+    console.print("[dim]─── 以上为历史会话回放，请直接输入继续对话 ───[/dim]")
+    return rendered_count
+
+
 def _render_progress_bar(pct: float, width: int = 28) -> str:
     clamped = max(0.0, min(100.0, pct))
     filled = int(round((clamped / 100.0) * width))
@@ -549,6 +605,8 @@ def handle_slash_command(
                 border_style="green",
             )
         )
+        setattr(config, "_active_session_id", loaded["session_id"])
+        replay_session_history(history)
         return True
 
     if cmd == "/mode":
@@ -1015,9 +1073,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     # Interactive REPL with prompt_toolkit live `/` dropdown & Tab autocomplete
+    history: List[Dict[str, Any]] = []
     setattr(config, "_active_session_id", client.session_manager.current_session_id)
     print_banner(config, client.memory_manager)
-    history: List[Dict[str, Any]] = []
     if args.resume:
         handle_slash_command(f"/resume {args.resume}", config, client, history)
 
