@@ -93,14 +93,15 @@ pip install -e .
 # 单次指令执行（自动触发 RecallIndex 技能检索 + Tool Calling 循环）
 wb "用毒舌吐槽风格点评一下把同一个模型拆成齐活林、许清楚、寇豆码五个子会话互相复制粘贴传话的架构设计，并调用 show_widget 画一张简洁的流程图保存在 /tmp/wb_roast.svg" --style sarcastic
 
-# 切换深度思考模型 (deepseek-reasoner)
-wb --reasoner "推导 MLA 低秩压缩对 KV Cache 的显存收益"
+# 切换思维链 (CoT) 开关与长短档位: off (默认关闭黑盒CoT) | low (50) | medium (65) | high (75) | max (100)
+wb -t low "算一下 17 * 23 等于多少？"
+wb -t high "简述 MLA 相比 MQA 的几何优势"
 
 # 查看当前精细上下文账本 (Base System Prompt / AGENTS.md / 历史对话占比与 15% 压缩水位线)
 wb --context
 
 # 启动交互式 REPL（内置 prompt_toolkit 实时 `/` 下拉菜单 + 多级 `Tab` 自动补全：
-# 支持 /context, /status, /mode, /style, /model, /profile, /team, /compact, /research, /critic, /docx, /recalc, /soul, /enhance, /clear）
+# 支持 /think, /effort, /context, /status, /mode, /style, /model, /profile, /team, /compact, /research, /critic, /docx, /recalc, /soul, /enhance, /clear）
 wb
 ```
 

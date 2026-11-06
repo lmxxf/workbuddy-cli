@@ -27,6 +27,7 @@ VALID_STYLES = (
     "straightforward",
 )
 VALID_PROMPT_PROFILES = ("lean", "full")
+VALID_THINKING_LEVELS = ("off", "low", "medium", "high", "max")
 
 
 def discover_agents_md(start_dir: Path, load_global_fallback: bool = True) -> List[Path]:
@@ -55,6 +56,7 @@ class WorkBuddyConfig:
     model: str = "deepseek-chat"
     mode: str = "craft"
     style: str = "efficient"
+    thinking_effort: str = "off"  # 'off' | 'low' (50) | 'medium' (65) | 'high' (75) | 'max' (100)
     prompt_profile: str = "lean"  # 'lean' (~2.5K on-demand) vs 'full' (~33K original WorkBuddy .tpl)
     load_agents_md: bool = True
     language: str = "中文"
@@ -111,6 +113,10 @@ class WorkBuddyConfig:
         if env_profile and env_profile in VALID_PROMPT_PROFILES:
             data["prompt_profile"] = env_profile
 
+        env_think = os.environ.get("WORKBUDDY_THINKING")
+        if env_think and env_think.lower() in VALID_THINKING_LEVELS:
+            data["thinking_effort"] = env_think.lower()
+
         if workspace_dir:
             data["workspace_dir"] = str(Path(workspace_dir).resolve())
 
@@ -142,3 +148,24 @@ class WorkBuddyConfig:
         if any(k in m for k in ("glm", "kimi", "moonshot", "chatglm")):
             return "moderate"
         return "high"
+
+    def get_thinking_api_params(self) -> dict:
+        """
+        Maps `thinking_effort` ('off'|'low'|'medium'|'high'|'max') to DeepSeek V4.1 / OpenAI
+        API payload fields (`thinking` & `reasoning_effort`).
+        """
+        lvl = (self.thinking_effort or "off").lower()
+        if "reasoner" in (self.model or "").lower() and lvl == "off":
+            lvl = "high"
+
+        if lvl == "off":
+            return {"thinking": {"type": "disabled"}}
+        if lvl == "low":
+            return {"thinking": {"type": "enabled"}, "reasoning_effort": "low"}
+        if lvl == "medium":
+            return {"thinking": {"type": "enabled"}, "reasoning_effort": "medium"}
+        if lvl == "high":
+            return {"thinking": {"type": "enabled"}, "reasoning_effort": "high"}
+        if lvl == "max":
+            return {"thinking": {"type": "enabled"}, "reasoning_effort": "high"}
+        return {"thinking": {"type": "disabled"}}

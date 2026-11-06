@@ -258,11 +258,21 @@ class WorkBuddyAgentClient:
             ],
             "max_tokens": max_tokens,
         }
-        if "reasoner" not in self.config.model:
+        think_params = self.config.get_thinking_api_params()
+        api_model = self.config.model
+        if api_model == "deepseek-chat" and self.config.thinking_effort != "off":
+            api_model = "deepseek-flash"
+        payload["model"] = api_model
+        payload.update(think_params)
+        if "reasoner" not in self.config.model and think_params.get("thinking", {}).get("type") != "enabled":
             payload["temperature"] = temperature
 
         with httpx.Client(timeout=90.0) as client:
             resp = client.post(self._endpoint_url(), headers=headers, json=payload)
+            if resp.status_code == 400 and ("thinking" in payload or "reasoning_effort" in payload):
+                payload.pop("thinking", None)
+                payload.pop("reasoning_effort", None)
+                resp = client.post(self._endpoint_url(), headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
             msg = data["choices"][0]["message"]
@@ -464,16 +474,24 @@ class WorkBuddyAgentClient:
 
         for _round in range(max_tool_rounds):
             api_messages = [{"role": "system", "content": sys_prompt}] + history
+            api_model = self.config.model
+            if api_model == "deepseek-chat" and self.config.thinking_effort != "off":
+                api_model = "deepseek-flash"
             payload: Dict[str, Any] = {
-                "model": self.config.model,
+                "model": api_model,
                 "messages": api_messages,
             }
+            payload.update(self.config.get_thinking_api_params())
             if enable_tools and self.config.mode != "ask":
                 payload["tools"] = AGENT_TOOLS_SCHEMA
                 payload["tool_choice"] = "auto"
 
             with httpx.Client(timeout=120.0) as client:
                 resp = client.post(self._endpoint_url(), headers=headers, json=payload)
+                if resp.status_code == 400 and ("thinking" in payload or "reasoning_effort" in payload):
+                    payload.pop("thinking", None)
+                    payload.pop("reasoning_effort", None)
+                    resp = client.post(self._endpoint_url(), headers=headers, json=payload)
                 resp.raise_for_status()
                 data = resp.json()
 
@@ -495,14 +513,15 @@ class WorkBuddyAgentClient:
                     "matched_skills": self.skill_router.match(user_input, top_k=2),
                 }
 
-            # Append assistant message with tool_calls
-            history.append(
-                {
-                    "role": "assistant",
-                    "content": msg.get("content") or "",
-                    "tool_calls": tool_calls,
-                }
-            )
+            # Append assistant message with tool_calls (and reasoning_content if thinking is active)
+            asst_entry: Dict[str, Any] = {
+                "role": "assistant",
+                "content": msg.get("content") or "",
+                "tool_calls": tool_calls,
+            }
+            if msg.get("reasoning_content"):
+                asst_entry["reasoning_content"] = msg["reasoning_content"]
+            history.append(asst_entry)
 
             for tc in tool_calls:
                 fn = tc.get("function") or {}

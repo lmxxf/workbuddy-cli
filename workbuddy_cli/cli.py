@@ -26,6 +26,7 @@ from .config import (
     VALID_MODES,
     VALID_STYLES,
     VALID_PROMPT_PROFILES,
+    VALID_THINKING_LEVELS,
     ASSETS_DIR,
     discover_agents_md,
 )
@@ -53,6 +54,8 @@ console = Console()
 SLASH_COMMANDS_META: List[Tuple[str, str, str]] = [
     ("/context", "/context", "查看精细上下文账本 (System/AGENTS.md/History Token 占比与压缩水位线)"),
     ("/status", "/status", "查看当前会话状态、模型配置与上下文账本 (同 /context)"),
+    ("/think", "/think <off|low|medium|high|max>", "控制思维链开关与长短档位 (off 关闭黑盒 CoT | low 50 | medium 65 | high 75 | max 100)"),
+    ("/effort", "/effort <off|low|medium|high|max>", "控制思维链长短档位 (同 /think: off | low | medium | high | max)"),
     ("/mode", "/mode <craft|ask|expert|plan>", "切换工作模式 (craft 编码执行 | ask 只读问答 | expert 专家 | plan 规划)"),
     ("/style", "/style <style_name>", "切换 7 种说话风格 (含 sarcastic 毒舌死党 | efficient | professional 等)"),
     ("/model", "/model <model_name>", "切换大模型 (deepseek-chat | deepseek-reasoner | deepseek-flash | deepseek-v4-pro)"),
@@ -90,6 +93,14 @@ PROFILE_CANDIDATES: List[Tuple[str, str]] = [
     ("full", "腾讯 WorkBuddy 原版全量 .tpl 模式 (~23K-33K tokens，1:1 逆向复刻)"),
 ]
 
+THINK_CANDIDATES: List[Tuple[str, str]] = [
+    ("off", "关闭内部黑盒思维链 (thinking: disabled，仅靠 AGENTS.md 括号外放推演，极速省 Token)"),
+    ("low", "轻度思考档位 (DeepSeek V4.1 控长 50 / reasoning_effort='low'，短平快 CoT)"),
+    ("medium", "中度思考档位 (DeepSeek V4.1 控长 65 / reasoning_effort='medium'，均衡推演)"),
+    ("high", "深度思考档位 (DeepSeek V4.1 控长 75 / reasoning_effort='high'，复杂代码与数学)"),
+    ("max", "满血思考档位 (DeepSeek V4.1 控长 100，无长度上限约束)"),
+]
+
 COMPACT_CANDIDATES: List[Tuple[str, str]] = [
     ("--engineering-only", "第一阶段纯规则剪刀 (剥离工具大输出与代码参数，0 LLM 消耗)"),
     ("--llm", "第二阶段 DeepSeek 智能结构化二压 (已修复假完工催眠乌龙 Bug)"),
@@ -115,6 +126,8 @@ def get_subcommand_completions(cmd: str, arg_tokens: List[str], current_word: st
 
     if cmd == "/mode" and slot_idx == 0:
         candidates = MODE_CANDIDATES
+    elif cmd in ("/think", "/effort") and slot_idx == 0:
+        candidates = THINK_CANDIDATES
     elif cmd == "/style" and slot_idx == 0:
         styles_map = client.prompt_engine.list_styles()
         candidates = [(k, v) for k, v in styles_map.items()]
@@ -258,8 +271,9 @@ def print_banner(config: WorkBuddyConfig, memory_mgr: SoulMemoryManager) -> None
         f"[bold cyan]WorkBuddy Open-Source CLI[/bold cyan] v{__version__}  "
         f"| Model: [bold magenta]{config.model}[/bold magenta] (Visualizer Tier: [bold]{tier}[/bold])\n"
         f"Mode: [bold]{config.mode}[/bold] | Style: [bold]{config.style}[/bold] | "
+        f"Think: [bold yellow]{config.thinking_effort}[/bold yellow] | "
         f"Profile: [bold]{config.prompt_profile}[/bold] | AGENTS.md: {agents_tag} | Soul: {onboarding_tag}\n"
-        f"💡 Type [bold green]/[/bold green] for live command dropdown menu, [bold green]Tab[/bold green] to autocomplete, or [bold green]/context[/bold green] to inspect token budget."
+        f"💡 Type [bold green]/[/bold green] for live command dropdown menu, [bold green]Tab[/bold green] to autocomplete, or [bold green]/think[/bold green] to tune CoT length."
     )
     console.print(Panel(banner_text, border_style="cyan", expand=False))
 
@@ -321,9 +335,9 @@ def show_context_dashboard(
         f"Endpoint: {config.base_url}",
     )
     table.add_row(
-        "Mode / Style / Profile",
-        f"mode=[bold]{config.mode}[/bold] | style=[bold]{config.style}[/bold] | profile=[bold]{config.prompt_profile}[/bold]",
-        f"Savings vs WorkBuddy Desktop (32,739 tok): {footprint['token_savings_vs_desktop_pct']}%",
+        "Mode / Style / Think / Profile",
+        f"mode=[bold]{config.mode}[/bold] | style=[bold]{config.style}[/bold] | think=[bold yellow]{config.thinking_effort}[/bold yellow] | profile=[bold]{config.prompt_profile}[/bold]",
+        f"Savings vs WorkBuddy Desktop (32,739 tok): {footprint['token_savings_vs_desktop_pct']}% | API: {json.dumps(config.get_thinking_api_params())}",
     )
     table.add_row(
         "Base System Prompt",
@@ -435,6 +449,28 @@ def handle_slash_command(
             console.print(f"[green]✓ Switched mode to:[/green] [bold]{config.mode}[/bold]")
         else:
             console.print(f"Current mode: [bold]{config.mode}[/bold]. Available: {', '.join(VALID_MODES)}")
+        return True
+
+    if cmd in ("/think", "/effort"):
+        if arg.lower() in VALID_THINKING_LEVELS:
+            config.thinking_effort = arg.lower()
+            desc = dict(THINK_CANDIDATES).get(config.thinking_effort, "")
+            console.print(
+                f"[green]✓ Switched thinking effort to:[/green] [bold yellow]{config.thinking_effort}[/bold yellow] — {desc}\n"
+                f"  [dim]API payload params: {json.dumps(config.get_thinking_api_params())}[/dim]"
+            )
+        else:
+            t = Table(title="Thinking / CoT Length Control Levels (/think or /effort)", header_style="bold yellow")
+            t.add_column("Level", style="cyan")
+            t.add_column("API Payload", style="green")
+            t.add_column("Description", style="white")
+            orig = config.thinking_effort
+            for lvl, desc in THINK_CANDIDATES:
+                config.thinking_effort = lvl
+                mark = " (active)" if lvl == orig else ""
+                t.add_row(f"{lvl}{mark}", json.dumps(config.get_thinking_api_params()), desc)
+            config.thinking_effort = orig
+            console.print(t)
         return True
 
     if cmd == "/style":
@@ -663,7 +699,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mode", choices=VALID_MODES, help="Working mode (craft|ask|expert|plan)")
     parser.add_argument("--style", choices=VALID_STYLES, help="Communication tone style (includes sarcastic)")
     parser.add_argument("--model", help="Model name (default: deepseek-chat)")
-    parser.add_argument("--reasoner", action="store_true", help="Shortcut to use deepseek-reasoner")
+    parser.add_argument("--reasoner", action="store_true", help="Shortcut to use deepseek-reasoner (sets thinking=high)")
+    parser.add_argument("-t", "--thinking", choices=VALID_THINKING_LEVELS, help="Thinking / CoT length level: off|low|medium|high|max")
     parser.add_argument("--prompt-profile", choices=VALID_PROMPT_PROFILES, help="Prompt profile: lean (~2.6K) vs full (~33K .tpl)")
     parser.add_argument("--token-audit", action="store_true", help="Compare startup token footprint (lean vs full 33K WorkBuddy)")
     parser.add_argument("--context", action="store_true", help="Show the /context token & memory dashboard and exit")
@@ -699,6 +736,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         config.model = args.model
     if args.reasoner:
         config.model = "deepseek-reasoner"
+        if not args.thinking:
+            config.thinking_effort = "high"
+    if args.thinking:
+        config.thinking_effort = args.thinking
     if args.prompt_profile:
         config.prompt_profile = args.prompt_profile
 
@@ -842,13 +883,14 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     while True:
         try:
+            prompt_label = f"wb ({config.mode}/{config.style}/think:{config.thinking_effort})> "
             if pt_session is not None:
                 print()
                 user_in = pt_session.prompt(
-                    [("class:prompt", f"wb ({config.mode}/{config.style})> ")],
+                    [("class:prompt", prompt_label)],
                 ).strip()
             else:
-                user_in = console.input(f"\n[bold cyan]wb ({config.mode}/{config.style})>[/bold cyan] ").strip()
+                user_in = console.input(f"\n[bold cyan]{prompt_label}[/bold cyan]").strip()
         except (EOFError, KeyboardInterrupt):
             console.print("\n[dim]Exiting WorkBuddy-CLI.[/dim]")
             break

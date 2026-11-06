@@ -418,6 +418,17 @@ shutil.rmtree({repr(str(victim_dir))})
         team_mode_cands = [c[0] for c in get_subcommand_completions("/team", ["SoftwareCompany"], "", client)]
         self.assertEqual(set(team_mode_cands), {"spawn", "role-switch"})
 
+        # Thinking / CoT effort completions & API payload mapping
+        think_cands = [c[0] for c in get_subcommand_completions("/think", [], "", client)]
+        self.assertEqual(set(think_cands), {"off", "low", "medium", "high", "max"})
+        self.config.thinking_effort = "off"
+        self.assertEqual(self.config.get_thinking_api_params(), {"thinking": {"type": "disabled"}})
+        self.config.thinking_effort = "low"
+        self.assertEqual(
+            self.config.get_thinking_api_params(),
+            {"thinking": {"type": "enabled"}, "reasoning_effort": "low"},
+        )
+
         # /context dashboard data verification
         ctx_info = show_context_dashboard(self.config, client, [])
         self.assertEqual(ctx_info["model"], "deepseek-chat")
