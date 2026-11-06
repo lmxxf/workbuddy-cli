@@ -1,0 +1,665 @@
+{
+  "version": 1,
+  "candidates": [
+    {
+      "id": "SeniorDeveloper",
+      "type": "expert",
+      "scenarios": [
+        "高级开发",
+        "架构设计",
+        "代码质量"
+      ],
+      "description": "10年以上全栈经验，精通多种语言和框架，是团队的技术中坚",
+      "priority": 300
+    },
+    {
+      "id": "WeChatMiniProgramDeveloper",
+      "type": "expert",
+      "scenarios": [
+        "小程序开发",
+        "微信生态",
+        "WXML开发"
+      ],
+      "description": "精通微信小程序开发框架和生态，打造流畅微信原生体验应用",
+      "priority": 295
+    },
+    {
+      "id": "EquityResearchExpert",
+      "type": "expert",
+      "scenarios": [
+        "股票研究",
+        "估值建模",
+        "投资决策"
+      ],
+      "description": "全面的股票研究工具集：财报分析、首次覆盖报告、DCF与可比估值、多空推介、投资备忘录、事件情景分析、组合风险管理，覆盖完整买方卖方研究工作流",
+      "priority": 290
+    },
+    {
+      "id": "UiDesigner",
+      "type": "expert",
+      "scenarios": [
+        "UI设计",
+        "组件库",
+        "界面规范"
+      ],
+      "description": "精通设计系统和组件库，追求像素级完美，打造无障碍用户界面",
+      "priority": 285
+    },
+    {
+      "id": "ContentCreator",
+      "type": "expert",
+      "scenarios": [
+        "内容策略",
+        "多平台创作",
+        "品牌叙事"
+      ],
+      "description": "擅长创作引人入胜的多平台内容，让品牌故事触达目标受众",
+      "priority": 280
+    },
+    {
+      "id": "WechatOfficialAccountExpert",
+      "type": "expert",
+      "scenarios": [
+        "公众号运营",
+        "图文排版",
+        "粉丝运营"
+      ],
+      "description": "精通公众号内容策略和粉丝增长，打造10万+品牌自媒体矩阵",
+      "priority": 275
+    },
+    {
+      "id": "XiaohongshuOperationsExpert",
+      "type": "expert",
+      "scenarios": [
+        "小红书运营",
+        "种草营销",
+        "笔记创作"
+      ],
+      "description": "深谙小红书种草生态和推荐机制，打造高互动率种草内容",
+      "priority": 270
+    },
+    {
+      "id": "PptCreationExpert",
+      "type": "expert",
+      "scenarios": [
+        "PPT制作",
+        "演示设计",
+        "幻灯片生成"
+      ],
+      "description": "智能 PPT 生成助手，一键将想法转化为精美演示文稿",
+      "priority": 265
+    },
+    {
+      "id": "DataAnalyticsReporter",
+      "type": "expert",
+      "scenarios": [
+        "数据分析",
+        "指标诊断",
+        "KPI报告"
+      ],
+      "description": "将复杂数据转化为战略洞察，提供指标诊断、KPI框架设计、数据质量评估与决策报告",
+      "priority": 260
+    },
+    {
+      "id": "FrontendDeveloper",
+      "type": "expert",
+      "scenarios": [
+        "前端开发",
+        "页面交互",
+        "组件开发"
+      ],
+      "description": "精通现代Web技术和主流框架，以像素级精度构建响应式高性能Web应用",
+      "priority": 255
+    },
+    {
+      "id": "ProductManagementExpert",
+      "type": "expert",
+      "scenarios": [
+        "产品管理",
+        "需求规划",
+        "迭代管理"
+      ],
+      "description": "产品管理工具集：功能规格编写、路线图规划、利益相关者沟通、用户研究综合、竞品分析和指标追踪",
+      "priority": 250
+    },
+    {
+      "id": "DataAnalysisExpert",
+      "type": "expert",
+      "scenarios": [
+        "数据分析",
+        "统计建模",
+        "业务洞察"
+      ],
+      "description": "数据分析专家，支持 Excel 电子表格的创建、编辑、分析、公式计算、格式化和数据可视化",
+      "priority": 245
+    },
+    {
+      "id": "MeituanLivingAssistant",
+      "type": "expert",
+      "scenarios": [
+        "美团优惠",
+        "团购下单",
+        "生活服务"
+      ],
+      "description": "帮您一键领取美团优惠券，搜索附近团购美食并下单，探索今日活动，覆盖餐饮饮品等生活服务，省钱省心。",
+      "priority": 240
+    },
+    {
+      "id": "GameDesigner",
+      "type": "expert",
+      "scenarios": [
+        "游戏设计",
+        "玩法策划",
+        "游戏系统"
+      ],
+      "description": "精通游戏系统和机制设计，用循环杠杆和心理构建玩法",
+      "priority": 235
+    },
+    {
+      "id": "FortuneConsultant",
+      "type": "expert",
+      "scenarios": [
+        "八字紫微",
+        "塔罗易卦",
+        "农历黄历"
+      ],
+      "description": "传统命理参考工具——八字紫微排盘、塔罗梅花起卦、农历黄历查询，多体系交叉参考，仅供娱乐。",
+      "priority": 230
+    },
+    {
+      "id": "NovelGenerator",
+      "type": "expert",
+      "scenarios": [
+        "爽文创作",
+        "长篇连载",
+        "提示词扩展"
+      ],
+      "description": "把灵感扩写为提示词与大纲，逐章生成连贯爽文，守护角色、地点、情节一致，支持修仙、重生、都市题材。",
+      "priority": 225
+    },
+    {
+      "id": "LongManuscriptExpert",
+      "type": "expert",
+      "scenarios": [
+        "长文写作",
+        "有界改稿",
+        "成稿收口"
+      ],
+      "description": "把提纲、访谈、旧稿和零散素材整理成结构清晰的长文档，支持章节续写、限定范围改稿与成稿交付前检查。",
+      "priority": 220
+    },
+    {
+      "id": "LlmWiki",
+      "type": "expert",
+      "scenarios": [
+        "LLM知识库",
+        "模型文档",
+        "技术百科"
+      ],
+      "description": "基于 Andrej Karpathy 的 LLM Wiki 模式，帮助用户构建、维护和查询持久化的个人知识库。擅长将原始资料（论文、文章、笔记等）编译为结构化 Markdown Wiki，自动建立交叉引用、标注矛盾、维护索引。",
+      "priority": 215
+    },
+    {
+      "id": "RemotionVideoExpert",
+      "type": "expert",
+      "scenarios": [
+        "编程式视频",
+        "视频生成",
+        "React视频"
+      ],
+      "description": "基于 Remotion 的视频生成专家，创建产品演示、解说视频、社交媒体内容和演示文稿",
+      "priority": 210
+    },
+    {
+      "id": "CrossBorderEcommerceExpert",
+      "type": "expert",
+      "scenarios": [
+        "跨境电商",
+        "海外仓配",
+        "国际合规"
+      ],
+      "description": "精通亚马逊Shopify等国际电商平台，助力品牌出海全球",
+      "priority": 205
+    },
+    {
+      "id": "DouyinStrategist",
+      "type": "expert",
+      "scenarios": [
+        "抖音运营",
+        "短视频策略",
+        "流量变现"
+      ],
+      "description": "精通抖音算法和内容生态，打造短视频爆款并实现商业化变现",
+      "priority": 200
+    },
+    {
+      "id": "StrategyBacktestExpert",
+      "type": "expert",
+      "scenarios": [
+        "策略回测",
+        "事件研究",
+        "量化分析"
+      ],
+      "description": "把自然语言描述的交易策略转成可运行的 Python 回测脚本，输出标准指标、可视化图表、HTML 仪表盘，并给出实现细节、已知偏差和结果解读。",
+      "priority": 195
+    },
+    {
+      "id": "GodotGameScriptEngineer",
+      "type": "expert",
+      "scenarios": [
+        "脚本工程",
+        "游戏逻辑",
+        "GDScript"
+      ],
+      "description": "精通GDScript 2.0和Godot 4节点架构",
+      "priority": 190
+    },
+    {
+      "id": "ChinaEcommerceOperationsExpert",
+      "type": "expert",
+      "scenarios": [
+        "电商运营",
+        "店铺管理",
+        "大促策划"
+      ],
+      "description": "精通天猫京东拼多多等平台运营，从选品到爆款一站式操盘",
+      "priority": 185
+    },
+    {
+      "id": "DocumentProcessingExpert",
+      "type": "expert",
+      "scenarios": [
+        "文档处理",
+        "Word操作",
+        "格式转换"
+      ],
+      "description": "文档处理套件：Excel 电子表格、Word 文档、PowerPoint 演示文稿和 PDF 文件的创建、编辑与转换",
+      "priority": 180
+    },
+    {
+      "id": "DeepResearchExpert",
+      "type": "expert",
+      "scenarios": [
+        "深度调研",
+        "行业分析",
+        "学术报告"
+      ],
+      "description": "综合性深度研究专家，支持多源信息检索、事实验证、知识发现和结构化报告生成，含微信公众号文章搜索能力",
+      "priority": 175
+    },
+    {
+      "id": "SoftwareArchitect",
+      "type": "expert",
+      "scenarios": [
+        "软件架构",
+        "系统设计",
+        "技术决策"
+      ],
+      "description": "站在全局高度设计可扩展高可用的软件架构，为技术团队指明方向",
+      "priority": 170
+    },
+    {
+      "id": "SeniorProjectManager",
+      "type": "expert",
+      "scenarios": [
+        "项目管理",
+        "里程碑规划",
+        "风险管控"
+      ],
+      "description": "10年以上项目管理经验，精通瀑布和敏捷，是复杂项目定海神针",
+      "priority": 165
+    },
+    {
+      "id": "DesignMdArchitect",
+      "type": "expert",
+      "scenarios": [
+        "设计系统",
+        "UI设计",
+        "品牌参考"
+      ],
+      "description": "基于58个品牌参考库，生成设计系统规范文档并直接输出高质量HTML/CSS页面与UI组件代码",
+      "priority": 160
+    },
+    {
+      "id": "ContractLegalExpert",
+      "type": "expert",
+      "scenarios": [
+        "合同起草",
+        "合同审查",
+        "法规检索"
+      ],
+      "description": "腾讯电子签合同法务专家擅长合同起草、审查、对比、法规检索，能在线发起签署，劳动/租赁/买卖全场景覆盖",
+      "priority": 155
+    },
+    {
+      "id": "KdocsPptCreator",
+      "type": "expert",
+      "scenarios": [
+        "一句话生成PPT",
+        "文档生成PPT",
+        "智能布局"
+      ],
+      "description": "WPS官方出品一句话主题或一份参考文档，AI 自动设计大纲并生成包含标题页、内容页、总结页的完整 PPT，并按场景统一配色与排版。覆盖工作汇报、项目展示、培训课件、方案演示等高频场景。",
+      "priority": 150
+    },
+    {
+      "id": "ResumeAssistant",
+      "type": "expert",
+      "scenarios": [
+        "简历润色",
+        "岗位定制",
+        "简历评分"
+      ],
+      "description": "提供百分制专业评分、四十项深度清单润色、岗位匹配定制与多格式导出，全面打造高竞争力求职简历。",
+      "priority": 145
+    },
+    {
+      "id": "EmbeddedFirmwareEngineer",
+      "type": "expert",
+      "scenarios": [
+        "嵌入式固件",
+        "RTOS开发",
+        "物联网硬件"
+      ],
+      "description": "精通微控制器编程，在资源受限的硬件上编写高效可靠的固件代码",
+      "priority": 140
+    },
+    {
+      "id": "DocumentGenerationExpert",
+      "type": "expert",
+      "scenarios": [
+        "文档生成",
+        "模板定制",
+        "批量输出"
+      ],
+      "description": "自动化生成各类业务文档，大幅提升文档创建效率",
+      "priority": 135
+    },
+    {
+      "id": "AiEngineer",
+      "type": "expert",
+      "scenarios": [
+        "AI工程",
+        "模型部署",
+        "ML流水线"
+      ],
+      "description": "精通ML模型开发部署优化的全栈AI工程师，将AI从论文带到生产环境",
+      "priority": 130
+    },
+    {
+      "id": "LitigationLegalExpert",
+      "type": "expert",
+      "scenarios": [
+        "诉讼支持",
+        "证据时间线",
+        "文书准备"
+      ],
+      "description": "面向诉讼律师的案件支持专家，梳理案件、证据、时间线、质证准备、索赔图表和文书草稿。",
+      "priority": 125
+    },
+    {
+      "id": "ContentWriter",
+      "type": "expert",
+      "scenarios": [
+        "社交媒体内容",
+        "文案创作",
+        "爆款标题"
+      ],
+      "description": "为小红书、知乎、公众号、抖音生成平台原生内容，含标题钩子、正文结构与转化引导，匹配各平台规范。",
+      "priority": 120
+    },
+    {
+      "id": "CodeReviewExpert",
+      "type": "expert",
+      "scenarios": [
+        "代码审查",
+        "质量把关",
+        "最佳实践"
+      ],
+      "description": "以鹰眼标准检查每行代码，在缺陷到达生产环境之前将其拦截",
+      "priority": 115
+    },
+    {
+      "id": "AiImagePromptEngineer",
+      "type": "expert",
+      "scenarios": [
+        "AI绘画",
+        "提示词工程",
+        "视觉创作"
+      ],
+      "description": "精通AI图像生成的语言密码，将抽象视觉概念转化为精准提示词",
+      "priority": 110
+    },
+    {
+      "id": "FinanceAccountingExpert",
+      "type": "expert",
+      "scenarios": [
+        "财务会计",
+        "账务处理",
+        "报表编制"
+      ],
+      "description": "财务会计工具集：月末结账、日记账分录、账户核对、财务报表生成、差异分析和 SOX 审计支持",
+      "priority": 105
+    },
+    {
+      "id": "MobileApplicationDeveloper",
+      "type": "expert",
+      "scenarios": [
+        "移动应用",
+        "原生开发",
+        "跨平台开发"
+      ],
+      "description": "精通iOS和Android原生及跨平台开发，打造流畅美观的移动应用",
+      "priority": 100
+    },
+    {
+      "id": "BackendArchitect",
+      "type": "expert",
+      "scenarios": [
+        "后端架构",
+        "微服务",
+        "高可用设计"
+      ],
+      "description": "深耕分布式系统和高并发架构，擅长将复杂业务转化为优雅技术方案",
+      "priority": 95
+    },
+    {
+      "id": "LegalSearchPro",
+      "type": "expert",
+      "scenarios": [
+        "法规类案检索",
+        "效力核验溯源",
+        "合规依据汇编"
+      ],
+      "description": "识别检索意图与场景，按法源位阶检索法规与类案，验证效力评估相似度，适配14种输出可溯源报告。",
+      "priority": 90
+    },
+    {
+      "id": "InfrastructureOperationsExpert",
+      "type": "expert",
+      "scenarios": [
+        "基础运维",
+        "系统监控",
+        "故障排查"
+      ],
+      "description": "确保IT基础设施的持续稳定运行，一切尽在掌控",
+      "priority": 85
+    },
+    {
+      "id": "ModernWebappExpert",
+      "type": "expert",
+      "scenarios": [
+        "浏览器自动化",
+        "Web测试",
+        "数据采集"
+      ],
+      "description": "现代 Web 应用开发专家，基于 React + TypeScript + Vite + Tailwind CSS + shadcn/ui 技术栈，含浏览器自动化能力",
+      "priority": 80
+    },
+    {
+      "id": "FsiMarketResearcher",
+      "type": "expert",
+      "scenarios": [
+        "行业研究",
+        "同业比较",
+        "选股发掘"
+      ],
+      "description": "面向分析师与基金经理的行业研究分析师,产出行业全景、竞争格局、可比公司估值表与主题选股清单等研究交付物。",
+      "priority": 75
+    },
+    {
+      "id": "SalesCoach",
+      "type": "expert",
+      "scenarios": [
+        "销售教练",
+        "交易策略",
+        "竞品分析"
+      ],
+      "description": "全栈销售教练：从能力培养到实战执行——会议准备、交易策略、商业案例、竞品分析、通话复盘，用苏格拉底式提问驱动",
+      "priority": 70
+    },
+    {
+      "id": "RecruitmentExpert",
+      "type": "expert",
+      "scenarios": [
+        "招聘管理",
+        "人才筛选",
+        "面试评估"
+      ],
+      "description": "精通人才招聘全流程，为团队找到最佳人才",
+      "priority": 65
+    },
+    {
+      "id": "BookCoCreator",
+      "type": "expert",
+      "scenarios": [
+        "图书共创",
+        "章节规划",
+        "出版写作"
+      ],
+      "description": "与作者深度协作，帮助规划书籍结构和内容，达到出版级品质",
+      "priority": 60
+    },
+    {
+      "id": "ViralTopicMaster",
+      "type": "expert",
+      "scenarios": [
+        "爆款选题",
+        "标题党炼成",
+        "全媒体策划"
+      ],
+      "description": "投热点出爆款。12 心法预筛+8 维打分+6 大形态产出，公众号视频号小红书 H5 通吃。",
+      "priority": 55
+    },
+    {
+      "id": "SoftwareCompany",
+      "type": "expert_team",
+      "scenarios": [
+        "软件公司",
+        "组织管理",
+        "产品交付"
+      ],
+      "description": "高效软件研发团队，产品经理定需求、架构师设计+拆任务、工程师批量实现代码、QA验证质量，小需求支持快速模式",
+      "priority": 50
+    },
+    {
+      "id": "TradingAgentTeam",
+      "type": "expert_team",
+      "scenarios": [
+        "交易策略",
+        "风险管理",
+        "市场分析"
+      ],
+      "description": "13位专业角色分5阶段协作完成投资分析：技术面、基本面、新闻面、情绪面数据采集 → 多空辩论 → 交易决策 → 三方风险评估 → 最终报告，输出 BUY/SELL/HOLD 建议及完整操作方案",
+      "priority": 45
+    },
+    {
+      "id": "AiContentCreatorTeam",
+      "type": "expert_team",
+      "scenarios": [
+        "创意策划",
+        "AI视频与图片",
+        "精修合成"
+      ],
+      "description": "AI驱动的多模态内容生产团队，从创意策划到成品交付全覆盖，涵盖品牌定位、情绪板、广告方向、文案创作、视频生成、图片设计、精修合成和素材改编。",
+      "priority": 40
+    },
+    {
+      "id": "GameDevelopmentStudio",
+      "type": "expert_team",
+      "scenarios": [
+        "游戏开发",
+        "工作室流程",
+        "设计到发布"
+      ],
+      "description": "统筹策划、技术、美术、音频、质量、运营六大专业成员，以七阶段工作流驱动游戏从概念到上线流程协同开发。",
+      "priority": 35
+    },
+    {
+      "id": "GPTResearcherTeam",
+      "type": "expert_team",
+      "scenarios": [
+        "深度调研",
+        "报告撰写",
+        "多源研究"
+      ],
+      "description": "深度研究报告输出，7角色5阶段聚合多源信息，经审稿修订循环输出带引用的专业报告",
+      "priority": 30
+    },
+    {
+      "id": "StockPartnerTeam",
+      "type": "expert_team",
+      "scenarios": [
+        "估值定价",
+        "资金风向",
+        "短线节奏"
+      ],
+      "description": "六位投研专家团，兼擅产业策略、信号捕捉、估值定价、逆向布局、基本面与短线，基于实时行情多视角研判。",
+      "priority": 25
+    },
+    {
+      "id": "MvpDevExpertTeam",
+      "type": "expert_team",
+      "scenarios": [
+        "MVP开发",
+        "全栈开发",
+        "快速原型"
+      ],
+      "description": "说出你的想法，8位专家从调研、设计、编码、测试到部署全流程协作，帮你快速开发MVP产品",
+      "priority": 20
+    },
+    {
+      "id": "ProductStrategyTeam",
+      "type": "expert_team",
+      "scenarios": [
+        "产品战略",
+        "竞品分析",
+        "路线图规划"
+      ],
+      "description": "由产品总监领导的 5 人产品专家团队：需求分析师（PRD/功能规格书）、用户研究员（调研综合分析）、竞品分析师（竞争情报）、数据分析师（指标追踪）和路线图规划师（路线图管理/迭代规划）。覆盖从构思到上线的完整产品生命周期。",
+      "priority": 15
+    },
+    {
+      "id": "SoftwareWorkshop",
+      "type": "expert_team",
+      "scenarios": [
+        "代码审查",
+        "安全审计",
+        "质量测试"
+      ],
+      "description": "6位工程专业角色：产品评审、代码审查、安全审计、QA测试、设计系统、调试运维，覆盖从想法到生产的完整软件生命周期",
+      "priority": 10
+    },
+    {
+      "id": "OpenSpecDocTeam",
+      "type": "expert_team",
+      "scenarios": [
+        "文档团队",
+        "规格文档",
+        "文档审计"
+      ],
+      "description": "企业级长文档生成，4角色协作完成深度调研、大纲规划、内容撰写与合规审核全流程",
+      "priority": 5
+    }
+  ]
+}

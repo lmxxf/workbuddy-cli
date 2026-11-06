@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "workbuddy-cli"
+version = "0.1.0"
+description = "Open-source cross-platform CLI for Tencent WorkBuddyAI — featuring full reversed prompt templates, SOUL.md incubator, 2.6w-word Visualizer engine, GB/T 9704 red-header Docx & Excel formula recalc suite, 2/3 skeptical jury Deep Research, Critic-Generator blind review, and fixed /compact."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Jin Yanyan (lmxxf)", email = "lmxxf@hotmail.com"}
+]
+dependencies = [
+    "httpx>=0.24.0",
+    "rich>=13.0.0",
+    "jinja2>=3.1.0",
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.0.0"]
+dev = ["pytest>=7.0.0"]
+
+[project.scripts]
+workbuddy = "workbuddy_cli.cli:main"
+wb = "workbuddy_cli.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["workbuddy_cli*"]
+
+[tool.setuptools.package-data]
+workbuddy_cli = [
+    "assets/**/*",
+    "assets/templates/**/*",
+    "assets/skills/**/*",
+    "assets/compact/**/*",
+    "assets/workflows/**/*",
+    "assets/sandbox/**/*",
+]

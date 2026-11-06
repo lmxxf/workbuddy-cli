@@ -1,0 +1,92 @@
+{
+    "version": 1,
+    "default_action": "ask",
+    "file_rules": [
+        { "path": "%USERPROFILE%\\.ssh\\**",     "action": "read=deny|write=deny|delete=deny",    "_comment": "protect credentials" },
+        { "path": "%USERPROFILE%\\.gnupg\\**",   "action": "read=deny|write=deny|delete=deny",    "_comment": "protect credentials" },
+
+        { "path": "%LOCALAPPDATA%\\Temp\\**",    "action": "read=allow|write=allow|delete=allow", "_comment": "temp" },
+        { "path": "**\\$RECYCLE.BIN\\**", "action": "read=allow|write=allow|delete=allow", "_comment": "recycle bin" },
+        { "path": "%APPDATA%\\Microsoft\\Windows\\Recent\\**", "action": "read=allow|write=allow|delete=allow", "_comment": "windows recent" },
+
+        { "path": "%USERPROFILE%\\.cache\\**",   "action": "read=allow|write=allow|delete=allow", "_comment": "generic cache" },
+        { "path": "%USERPROFILE%\\.local\\**",   "action": "read=allow|write=allow|delete=allow", "_comment": "XDG local" },
+
+        { "path": "%LOCALAPPDATA%\\npm-cache\\**",       "action": "read=allow|write=allow|delete=allow", "_comment": "nodejs" },
+        { "path": "%LOCALAPPDATA%\\pnpm\\**",            "action": "read=allow|write=allow|delete=allow", "_comment": "nodejs" },
+        { "path": "%LOCALAPPDATA%\\Yarn\\**",            "action": "read=allow|write=allow|delete=allow", "_comment": "nodejs" },
+        { "path": "%LOCALAPPDATA%\\fnm_multishells\\**", "action": "read=allow|write=allow|delete=allow", "_comment": "nodejs" },
+        { "path": "%APPDATA%\\npm\\**",                  "action": "read=allow|write=allow|delete=allow", "_comment": "nodejs" },
+        { "path": "%USERPROFILE%\\.npm\\**",             "action": "read=allow|write=allow|delete=allow", "_comment": "nodejs" },
+        { "path": "%USERPROFILE%\\.yarn\\**",            "action": "read=allow|write=allow|delete=allow", "_comment": "nodejs" },
+        { "path": "%USERPROFILE%\\.nvm\\**",             "action": "read=allow|write=allow|delete=allow", "_comment": "nodejs" },
+        { "path": "%USERPROFILE%\\.fnm\\**",             "action": "read=allow|write=allow|delete=allow", "_comment": "nodejs" },
+        { "path": "%USERPROFILE%\\.bun\\**",             "action": "read=allow|write=allow|delete=allow", "_comment": "nodejs" },
+
+        { "path": "%LOCALAPPDATA%\\pip\\**",             "action": "read=allow|write=allow|delete=allow", "_comment": "python" },
+        { "path": "%LOCALAPPDATA%\\conda\\**",           "action": "read=allow|write=allow|delete=allow", "_comment": "python" },
+        { "path": "%LOCALAPPDATA%\\uv\\**",              "action": "read=allow|write=allow|delete=allow", "_comment": "python" },
+        { "path": "%APPDATA%\\uv\\**",                   "action": "read=allow|write=allow|delete=allow", "_comment": "python" },
+        { "path": "%USERPROFILE%\\.pyenv\\**",           "action": "read=allow|write=allow|delete=allow", "_comment": "python" },
+        { "path": "%USERPROFILE%\\.conda\\**",           "action": "read=allow|write=allow|delete=allow", "_comment": "python" },
+        { "path": "%USERPROFILE%\\miniconda3\\**",       "action": "read=allow|write=allow|delete=allow", "_comment": "python" },
+        { "path": "%USERPROFILE%\\miniforge3\\**",       "action": "read=allow|write=allow|delete=allow", "_comment": "python" },
+
+        { "path": "%USERPROFILE%\\.rustup\\**",  "action": "read=allow|write=allow|delete=allow", "_comment": "rust" },
+        { "path": "%USERPROFILE%\\.cargo\\**",   "action": "read=allow|write=allow|delete=allow", "_comment": "rust" },
+
+        { "path": "%LOCALAPPDATA%\\go-build\\**","action": "read=allow|write=allow|delete=allow", "_comment": "go" },
+        { "path": "%APPDATA%\\go\\**",           "action": "read=allow|write=allow|delete=allow", "_comment": "go" },
+        { "path": "%USERPROFILE%\\go\\**",       "action": "read=allow|write=allow|delete=allow", "_comment": "go" },
+
+        { "path": "%USERPROFILE%\\.m2\\**",      "action": "read=allow|write=allow|delete=allow", "_comment": "java" },
+        { "path": "%USERPROFILE%\\.gradle\\**",  "action": "read=allow|write=allow|delete=allow", "_comment": "java" },
+        { "path": "%USERPROFILE%\\.sdkman\\**",  "action": "read=allow|write=allow|delete=allow", "_comment": "java" },
+
+        { "path": "%USERPROFILE%\\.dotnet\\**",  "action": "read=allow|write=allow|delete=allow", "_comment": "dotnet" },
+        { "path": "%USERPROFILE%\\.nuget\\**",   "action": "read=allow|write=allow|delete=allow", "_comment": "dotnet" },
+        { "path": "%LOCALAPPDATA%\\NuGet\\**",   "action": "read=allow|write=allow|delete=allow", "_comment": "dotnet" },
+
+        { "path": "%USERPROFILE%\\.docker\\**",  "action": "read=allow|write=allow|delete=allow", "_comment": "docker" },
+        { "path": "%USERPROFILE%\\.asdf\\**",    "action": "read=allow|write=allow|delete=allow", "_comment": "version-mgr" },
+
+        { "path": "%APPDATA%\\Code\\**",         "action": "read=allow|write=allow|delete=allow", "_comment": "ide" },
+        { "path": "%APPDATA%\\Trae\\**",         "action": "read=allow|write=allow|delete=allow", "_comment": "ide" },
+
+        { "path": "%APPDATA%\\Microsoft\\Windows\\PowerShell\\**",  "action": "read=allow|write=allow|delete=allow", "_comment": "shell history" },
+        { "path": "%LOCALAPPDATA%\\Microsoft\\Windows\\PowerShell\\**", "action": "read=allow|write=allow|delete=allow", "_comment": "shell cache" },
+
+        { "path": "C:\\openclaw\\openclaw\\**",         "action": "read=allow|write=allow|delete=allow", "_comment": "openclaw app" },
+        { "path": "%USERPROFILE%\\.openclaw\\**",       "action": "read=allow|write=allow|delete=allow", "_comment": "openclaw config" }
+        
+    ],
+
+    "file_rules_user": [
+        { "path": "D:\\openclaw\\proxy-agent\\**", "action": "read=allow|write=allow|delete=allow", "_comment": "Add custom file rules here. Same format as file_rules." }
+    ],
+
+    "registry_rules": [],
+    "process_rules": [],
+    "network_rules": [],
+
+    "network_rules_user": [],
+
+    "white_process": [
+        { "path": "**\\msedge.exe",        "_comment": "Microsoft Edge" },
+        { "path": "**\\chrome.exe",        "_comment": "Google Chrome" },
+        { "path": "**\\firefox.exe",       "_comment": "Mozilla Firefox" },
+        { "path": "**\\brave.exe",         "_comment": "Brave Browser" },
+        { "path": "**\\opera.exe",         "_comment": "Opera" },
+        { "path": "**\\360se.exe",         "_comment": "360 安全浏览器" },
+        { "path": "**\\QQBrowser.exe",     "_comment": "QQ 浏览器" },
+        { "path": "**\\SogouExplorer.exe", "_comment": "搜狗浏览器" }
+    ],
+
+    "_comment_network_policy": "双引擎:tsbx 仅做 DNS hook 域名拦截(default 恒 allow,不拦 TCP);TCP 决策由 Rust LocalProxy 承担。deny_domains 驱动 DNS 黑名单。",
+    "network_policy": {
+        "enabled": true,
+        "default": "allow",
+        "deny_ips": [],
+        "deny_domains": []
+    }
+}
