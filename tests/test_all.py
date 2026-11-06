@@ -434,6 +434,42 @@ shutil.rmtree({repr(str(victim_dir))})
         self.assertEqual(ctx_info["model"], "deepseek-chat")
         self.assertGreater(ctx_info["total_tokens"], 500)
 
+    def test_12_session_persistence_and_resume_lifecycle(self):
+        from workbuddy_cli.agent_client import WorkBuddyAgentClient
+        from workbuddy_cli.cli import handle_slash_command, get_subcommand_completions
+
+        client = WorkBuddyAgentClient(self.config)
+        history = [
+            {"role": "user", "content": "<user_query>\n记住暗号：兰斯洛特7788\n</user_query>"},
+            {"role": "assistant", "content": "已记住暗号：兰斯洛特7788。"},
+        ]
+        self.config.style = "sarcastic"
+        self.config.thinking_effort = "low"
+
+        saved_path = client.session_manager.save_session(self.config, history)
+        self.assertTrue(saved_path.exists())
+        first_sid = client.session_manager.current_session_id
+
+        # Check level-2 Tab completions for `/resume ` include `latest`, `1`, and `first_sid`
+        resume_cands = [c[0] for c in get_subcommand_completions("/resume", [], "", client)]
+        self.assertIn("latest", resume_cands)
+        self.assertIn("1", resume_cands)
+        self.assertIn(first_sid, resume_cands)
+
+        # Start a new session via `/new`
+        handle_slash_command("/new 第二场测试会话", self.config, client, history)
+        self.assertEqual(len(history), 0)
+        self.assertNotEqual(client.session_manager.current_session_id, first_sid)
+
+        # Mutate config, then `/resume 1` (or first_sid) and verify history & config are restored
+        self.config.style = "efficient"
+        self.config.thinking_effort = "off"
+        handle_slash_command(f"/resume {first_sid[:12]}", self.config, client, history)
+        self.assertEqual(len(history), 2)
+        self.assertEqual(self.config.style, "sarcastic")
+        self.assertEqual(self.config.thinking_effort, "low")
+        self.assertIn("兰斯洛特7788", history[0]["content"])
+
 
 if __name__ == "__main__":
     unittest.main()

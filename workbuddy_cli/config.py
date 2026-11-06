@@ -53,7 +53,7 @@ def discover_agents_md(start_dir: Path, load_global_fallback: bool = True) -> Li
 class WorkBuddyConfig:
     api_key: str = ""
     base_url: str = "https://api.deepseek.com/v1"
-    model: str = "deepseek-chat"
+    model: str = "deepseek-flash"  # DeepSeek-V4.1-Flash (1M context window)
     mode: str = "craft"
     style: str = "efficient"
     thinking_effort: str = "off"  # 'off' | 'low' (50) | 'medium' (65) | 'high' (75) | 'max' (100)
@@ -134,6 +134,21 @@ class WorkBuddyConfig:
         except OSError:
             pass
         return path
+
+    def get_model_display_name(self) -> str:
+        m = (self.model or "").lower()
+        if m in ("deepseek-flash", "deepseek-v4.1-flash"):
+            return f"{self.model} (DeepSeek-V4.1-Flash)"
+        if m == "deepseek-v4-pro":
+            return "deepseek-v4-pro (DeepSeek-V4-Pro)"
+        return self.model
+
+    def resolve_api_model_id(self) -> str:
+        """Normalizes friendly aliases like `deepseek-v4.1-flash` to DeepSeek API's `deepseek-flash`."""
+        m = (self.model or "deepseek-flash").strip()
+        if m.lower() == "deepseek-v4.1-flash":
+            return "deepseek-flash"
+        return m
 
     def get_model_complexity_tier(self) -> str:
         """

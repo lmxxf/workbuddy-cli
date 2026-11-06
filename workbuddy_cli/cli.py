@@ -54,6 +54,10 @@ console = Console()
 SLASH_COMMANDS_META: List[Tuple[str, str, str]] = [
     ("/context", "/context", "查看精细上下文账本 (System/AGENTS.md/History Token 占比与压缩水位线)"),
     ("/status", "/status", "查看当前会话状态、模型配置与上下文账本 (同 /context)"),
+    ("/resume", "/resume [latest|1|<session_id>]", "查看或恢复历史会话 (不带参数列历史表，支持序号 1/2、latest 或 Session ID 恢复)"),
+    ("/sessions", "/sessions [list|delete <id>]", "列出或删除本地持久化的历史会话 (~/.workbuddy-cli/sessions/)"),
+    ("/new", "/new [title]", "保存当前对话并开启一个全新的干净 Session 窗口"),
+    ("/rename", "/rename <new_title>", "为当前会话设置自定义标题 (方便后续 /resume 查找)"),
     ("/think", "/think <off|low|medium|high|max>", "控制思维链开关与长短档位 (off 关闭黑盒 CoT | low 50 | medium 65 | high 75 | max 100)"),
     ("/effort", "/effort <off|low|medium|high|max>", "控制思维链长短档位 (同 /think: off | low | medium | high | max)"),
     ("/mode", "/mode <craft|ask|expert|plan>", "切换工作模式 (craft 编码执行 | ask 只读问答 | expert 专家 | plan 规划)"),
@@ -75,10 +79,11 @@ SLASH_COMMANDS_META: List[Tuple[str, str, str]] = [
 ]
 
 MODEL_CANDIDATES: List[Tuple[str, str]] = [
-    ("deepseek-chat", "DeepSeek 默认主力对话/Agent 模型 (极速响应)"),
-    ("deepseek-reasoner", "DeepSeek 深度思考推理模型 (输出 reasoning_content 思维链)"),
-    ("deepseek-flash", "DeepSeek-V4.1-Flash (1M 上下文原生多模态)"),
+    ("deepseek-flash", "DeepSeek-V4.1-Flash (默认一等公民，1M 上下文原生多模态)"),
+    ("deepseek-v4.1-flash", "DeepSeek-V4.1-Flash 显式别名 (自动映射至 deepseek-flash)"),
     ("deepseek-v4-pro", "DeepSeek-V4-Pro (1M 上下文旗舰底座)"),
+    ("deepseek-chat", "DeepSeek 经典对话端点"),
+    ("deepseek-reasoner", "DeepSeek 深度思考推理端点 (默认开启 high CoT)"),
 ]
 
 MODE_CANDIDATES: List[Tuple[str, str]] = [
@@ -139,6 +144,16 @@ def get_subcommand_completions(cmd: str, arg_tokens: List[str], current_word: st
         candidates = COMPACT_CANDIDATES
     elif cmd == "/soul" and slot_idx == 0:
         candidates = SOUL_CANDIDATES
+    elif cmd in ("/resume", "/sessions") and slot_idx == 0:
+        saved = client.session_manager.list_sessions(limit=15)
+        candidates = [("latest", "恢复最近一次活跃的历史会话 (Most recent session)")]
+        for idx, s in enumerate(saved, start=1):
+            meta = f"#{idx} [{s['user_turns']} turns, {s['estimated_tokens']} tok, {s['updated_at'][5:16]}] {s['title']}"
+            candidates.append((str(idx), meta))
+            candidates.append((s["session_id"], meta))
+        if cmd == "/sessions":
+            candidates.insert(0, ("list", "列出所有保存的历史会话"))
+            candidates.insert(1, ("delete", "删除指定历史会话: /sessions delete <id_or_index>"))
     elif cmd == "/skills" and slot_idx == 0:
         candidates = [
             ("list", "列出全部内置与自定义 Skills"),
@@ -269,11 +284,12 @@ def print_banner(config: WorkBuddyConfig, memory_mgr: SoulMemoryManager) -> None
     )
     banner_text = (
         f"[bold cyan]WorkBuddy Open-Source CLI[/bold cyan] v{__version__}  "
-        f"| Model: [bold magenta]{config.model}[/bold magenta] (Visualizer Tier: [bold]{tier}[/bold])\n"
+        f"| Model: [bold magenta]{config.get_model_display_name()}[/bold magenta] (Tier: [bold]{tier}[/bold]) "
+        f"| Session: [bold]{getattr(config, '_active_session_id', 'new')}[/bold]\n"
         f"Mode: [bold]{config.mode}[/bold] | Style: [bold]{config.style}[/bold] | "
         f"Think: [bold yellow]{config.thinking_effort}[/bold yellow] | "
         f"Profile: [bold]{config.prompt_profile}[/bold] | AGENTS.md: {agents_tag} | Soul: {onboarding_tag}\n"
-        f"💡 Type [bold green]/[/bold green] for live command dropdown menu, [bold green]Tab[/bold green] to autocomplete, or [bold green]/think[/bold green] to tune CoT length."
+        f"💡 Type [bold green]/[/bold green] for live command menu, [bold green]/resume[/bold green] to restore sessions, or [bold green]/think[/bold green] to tune CoT."
     )
     console.print(Panel(banner_text, border_style="cyan", expand=False))
 
@@ -330,8 +346,13 @@ def show_context_dashboard(
     table.add_column("Notes / Path (详情说明)", style="dim")
 
     table.add_row(
+        "Active Session ID",
+        f"[bold cyan]{client.session_manager.current_session_id}[/bold cyan]",
+        f"Title: {client.session_manager.derive_title(history)} (~/.workbuddy-cli/sessions/)",
+    )
+    table.add_row(
         "Active Model & Tier",
-        f"[bold magenta]{config.model}[/bold magenta] (Tier: [bold]{config.get_model_complexity_tier()}[/bold])",
+        f"[bold magenta]{config.get_model_display_name()}[/bold magenta] (Tier: [bold]{config.get_model_complexity_tier()}[/bold])",
         f"Endpoint: {config.base_url}",
     )
     table.add_row(
@@ -441,6 +462,93 @@ def handle_slash_command(
         count = len(history)
         history.clear()
         console.print(f"[green]✓ Cleared {count} conversation history items.[/green]")
+        return True
+
+    if cmd == "/new":
+        if history:
+            client.session_manager.save_session(config, history)
+        history.clear()
+        new_sid = client.session_manager.start_new_session(title=arg)
+        console.print(
+            f"[green]✓ Started new session:[/green] [bold cyan]{new_sid}[/bold cyan]"
+            + (f" ({arg})" if arg else "")
+        )
+        return True
+
+    if cmd == "/rename":
+        if not arg:
+            console.print("[red]Usage: /rename <new_session_title>[/red]")
+            return True
+        client.session_manager.current_title = arg.strip()
+        path = client.session_manager.save_session(config, history)
+        console.print(
+            f"[green]✓ Renamed session [bold cyan]{client.session_manager.current_session_id}[/bold cyan] to:[/green] "
+            f"[bold]{arg.strip()}[/bold] ({path.name})"
+        )
+        return True
+
+    if cmd in ("/sessions", "/resume"):
+        if cmd == "/sessions" and arg.lower().startswith("delete "):
+            target = arg[7:].strip()
+            ok = client.session_manager.delete_session(target)
+            if ok:
+                console.print(f"[green]✓ Deleted session matching '{target}'.[/green]")
+            else:
+                console.print(f"[red]Session not found: '{target}'[/red]")
+            return True
+
+        if not arg or (cmd == "/sessions" and arg.lower() == "list"):
+            sessions = client.session_manager.list_sessions(limit=20)
+            if not sessions:
+                console.print("[dim]No saved sessions yet in ~/.workbuddy-cli/sessions/. Start chatting to auto-save![/dim]")
+                return True
+            t = Table(
+                title="🗂️  Saved Sessions (~/.workbuddy-cli/sessions/) — Use `/resume <#|id|latest>` to restore",
+                header_style="bold cyan",
+            )
+            t.add_column("#", style="yellow", no_wrap=True)
+            t.add_column("Session ID", style="cyan", no_wrap=True)
+            t.add_column("Updated", style="dim")
+            t.add_column("Turns/Tok", style="green")
+            t.add_column("Title / First Query", style="white", ratio=2)
+            for idx, s in enumerate(sessions, start=1):
+                active_mark = "*" if s["session_id"] == client.session_manager.current_session_id else ""
+                t.add_row(
+                    f"#{idx}{active_mark}",
+                    s["session_id"],
+                    s["updated_at"][5:16].replace("T", " "),
+                    f"{s['user_turns']}t/{s['estimated_tokens']:,}",
+                    s["title"],
+                )
+            console.print(t)
+            return True
+
+        # Restore specified session (`latest`, `#1`, `1`, or `session_id`)
+        loaded = client.session_manager.resolve_and_load(arg)
+        if not loaded:
+            console.print(f"[red]Session not found for '{arg}'. Type `/resume` to list available sessions.[/red]")
+            return True
+
+        history.clear()
+        history.extend(loaded.get("history") or [])
+        if loaded.get("mode") in VALID_MODES:
+            config.mode = loaded["mode"]
+        if loaded.get("style") in VALID_STYLES:
+            config.style = loaded["style"]
+        if loaded.get("thinking_effort") in VALID_THINKING_LEVELS:
+            config.thinking_effort = loaded["thinking_effort"]
+        if loaded.get("model"):
+            config.model = loaded["model"]
+
+        console.print(
+            Panel(
+                f"[bold green]✓ Resumed Session:[/bold green] [bold cyan]{loaded['session_id']}[/bold cyan]\n"
+                f"Title: [bold]{loaded.get('title', 'Untitled')}[/bold] | "
+                f"Restored Messages: [bold]{len(history)}[/bold] ({loaded.get('estimated_tokens', 0):,} tokens) | "
+                f"Config: [bold]{config.mode}/{config.style}/think:{config.thinking_effort}[/bold]",
+                border_style="green",
+            )
+        )
         return True
 
     if cmd == "/mode":
@@ -564,6 +672,16 @@ def handle_slash_command(
         sample_hist = history if history else _build_demo_history()
         llm_fn = client.simple_llm_call if (force_llm and config.api_key) else None
         res = compactor.run_compact(sample_hist, engineering_only=eng_only, llm_call_fn=llm_fn, force_llm=force_llm)
+        if history and res.get("summary_text"):
+            history.clear()
+            history.append(
+                {
+                    "role": "user",
+                    "content": res["summary_text"],
+                    "providerData": {"isSummary": True, "isCompacted": True},
+                }
+            )
+            client.session_manager.save_session(config, history)
         console.print(Panel(res["summary_text"], title=f"/compact ({res['strategy']})", border_style="green"))
         console.print(
             f"[cyan]Original Tokens:[/cyan] {res['original_tokens']} -> "
@@ -701,6 +819,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model", help="Model name (default: deepseek-chat)")
     parser.add_argument("--reasoner", action="store_true", help="Shortcut to use deepseek-reasoner (sets thinking=high)")
     parser.add_argument("-t", "--thinking", choices=VALID_THINKING_LEVELS, help="Thinking / CoT length level: off|low|medium|high|max")
+    parser.add_argument(
+        "-r",
+        "--resume",
+        nargs="?",
+        const="latest",
+        metavar="SESSION_ID_OR_INDEX",
+        help="Resume a previous session (defaults to 'latest' if no ID/index given)",
+    )
+    parser.add_argument("--sessions", action="store_true", help="List saved conversation sessions and exit")
     parser.add_argument("--prompt-profile", choices=VALID_PROMPT_PROFILES, help="Prompt profile: lean (~2.6K) vs full (~33K .tpl)")
     parser.add_argument("--token-audit", action="store_true", help="Compare startup token footprint (lean vs full 33K WorkBuddy)")
     parser.add_argument("--context", action="store_true", help="Show the /context token & memory dashboard and exit")
@@ -752,6 +879,10 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.context:
         show_context_dashboard(config, client, [])
+        return 0
+
+    if args.sessions:
+        handle_slash_command("/sessions list", config, client, [])
         return 0
 
     if args.render_prompt:
@@ -867,18 +998,29 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.prompt:
+        history_single: List[Dict[str, Any]] = []
+        if args.resume:
+            loaded = client.session_manager.resolve_and_load(args.resume)
+            if loaded:
+                history_single.extend(loaded.get("history") or [])
+
         def _on_tool(tname: str, targs: str, tres: str):
             console.print(f"  [dim]🔧 Tool Call:[/dim] [bold yellow]{tname}[/bold yellow]({targs[:120]})")
 
-        turn = client.chat_turn(args.prompt, history=[], on_tool_call=_on_tool)
+        turn = client.chat_turn(args.prompt, history=history_single, on_tool_call=_on_tool)
+        client.session_manager.save_session(config, history_single)
         if turn.get("reasoning"):
             console.print(Panel(turn["reasoning"], title="💭 Reasoning Trace", border_style="dim"))
         console.print(Markdown(turn["reply"]))
         return 0
 
     # Interactive REPL with prompt_toolkit live `/` dropdown & Tab autocomplete
+    setattr(config, "_active_session_id", client.session_manager.current_session_id)
     print_banner(config, client.memory_manager)
     history: List[Dict[str, Any]] = []
+    if args.resume:
+        handle_slash_command(f"/resume {args.resume}", config, client, history)
+
     pt_session = build_prompt_session(client) if sys.stdin.isatty() else None
 
     while True:
@@ -906,6 +1048,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         try:
             turn = client.chat_turn(user_in, history=history, on_tool_call=_on_tool_repl)
+            client.session_manager.save_session(config, history)
             if turn.get("reasoning"):
                 console.print(Panel(turn["reasoning"], title="💭 Reasoning Trace", border_style="dim"))
             console.print(Markdown(turn["reply"]))

@@ -27,6 +27,7 @@ import httpx
 
 from .config import WorkBuddyConfig
 from .memory import SoulMemoryManager
+from .session import SessionManager
 from .prompt_engine import PromptEngine, ENHANCE_PROMPT_SYSTEM
 from .skill_router import SkillRouter
 from .tools.safe_shell import SafeTrashInterceptor, DocumentBackupTransaction, HIGH_RISK_WARNING_BANNER
@@ -229,6 +230,7 @@ class WorkBuddyAgentClient:
             self.workspace_dir,
             config.data_folder_name,
         )
+        self.session_manager = SessionManager(config.config_dir)
         self.prompt_engine = PromptEngine(config, self.memory_manager)
         self.skill_router = SkillRouter()
         self.trash_interceptor = SafeTrashInterceptor()
@@ -259,7 +261,7 @@ class WorkBuddyAgentClient:
             "max_tokens": max_tokens,
         }
         think_params = self.config.get_thinking_api_params()
-        api_model = self.config.model
+        api_model = self.config.resolve_api_model_id()
         if api_model == "deepseek-chat" and self.config.thinking_effort != "off":
             api_model = "deepseek-flash"
         payload["model"] = api_model
@@ -474,7 +476,7 @@ class WorkBuddyAgentClient:
 
         for _round in range(max_tool_rounds):
             api_messages = [{"role": "system", "content": sys_prompt}] + history
-            api_model = self.config.model
+            api_model = self.config.resolve_api_model_id()
             if api_model == "deepseek-chat" and self.config.thinking_effort != "off":
                 api_model = "deepseek-flash"
             payload: Dict[str, Any] = {

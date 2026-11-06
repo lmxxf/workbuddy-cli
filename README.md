@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](pyproject.toml)
 [![DeepSeek First-Class](https://img.shields.io/badge/DeepSeek-First--Class%20Citizen-blueviolet.svg)](https://api.deepseek.com)
-[![Tests: 11/11 Passed](https://img.shields.io/badge/Tests-11%2F11%20Passed-brightgreen.svg)](tests/test_all.py)
+[![Tests: 12/12 Passed](https://img.shields.io/badge/Tests-12%2F12%20Passed-brightgreen.svg)](tests/test_all.py)
 
 ---
 
@@ -25,7 +25,7 @@
    - **对外撑场面的“包工头多角色专家团”双倍 Token 爆炸**：拿同一个底座模型套上 **“交付总监齐活林、产品经理许清楚、架构师高见远、项目经理毕达成、程序员寇豆码、测试严过关”** 六顶谐音梗帽子，禁止团员直连，全靠包工头“齐活林”用 `<teammate-message>` 在中间复制粘贴当二传手（而腾讯程序员自己写核心 `tdoc-orchestrator.md` 第 150 行时却诚实地写着：`“⚠️ subagent 模式上下文隔离，效果不稳定，非必要不使用，推荐在单上下文喊 [角色切换]”`😂）。
 
 **`workbuddy-cli` (`wb`) 的设计目标**：
-- **DeepSeek 一等公民（First-Class Citizen）**：默认直连 DeepSeek API（无缝支持 `deepseek-chat` / `deepseek-flash` / `deepseek-v4-pro` / `deepseek-reasoner`），支持完整 10 大 Agentic Tools 自动循环；
+- **DeepSeek-V4.1-Flash 一等公民（First-Class Citizen）**：默认直连 DeepSeek V4.1-Flash（`deepseek-flash` / `deepseek-v4.1-flash`，1M 上下文原生多模态；无缝支持切换 `deepseek-v4-pro` / `deepseek-reasoner` / `deepseek-chat`），支持完整 10 大 Agentic Tools 自动循环与 `/think <off|low|medium|high|max>` 思维链控长；
 - **去芜存菁（Lean Profile 节省 94%+ 开局 Token）**：默认启用按需挂载的 `lean` 模式（开局核心提示词仅 `~1,800` Tokens，通过本地 `0.8 * Cosine + 0.2 * BM25` `RecallIndex` 动态按需注入 Skill），同时保留 `--prompt-profile full` 1:1 复刻原版 `.tpl`；
 - **原生支持 `AGENTS.md` / `CLAUDE.md` 自动发现**：像 Codex / Antigravity CLI 一样自动识别项目根下的 `AGENTS.md`；
 - **修复原版三大工程 Bug**：
@@ -74,9 +74,10 @@ pip install -e .
 {
   "api_key": "sk-your-deepseek-api-key",
   "base_url": "https://api.deepseek.com/v1",
-  "model": "deepseek-chat",
+  "model": "deepseek-v4.1-flash",
   "mode": "craft",
   "style": "efficient",
+  "thinking_effort": "off",
   "prompt_profile": "lean",
   "language": "中文",
   "ide_theme": "dark"
@@ -100,8 +101,12 @@ wb -t high "简述 MLA 相比 MQA 的几何优势"
 # 查看当前精细上下文账本 (Base System Prompt / AGENTS.md / 历史对话占比与 15% 压缩水位线)
 wb --context
 
+# 查看历史会话列表或一键恢复上一次会话继续聊 (-r / --resume)
+wb --sessions
+wb -r latest "继续刚才的话题"
+
 # 启动交互式 REPL（内置 prompt_toolkit 实时 `/` 下拉菜单 + 多级 `Tab` 自动补全：
-# 支持 /think, /effort, /context, /status, /mode, /style, /model, /profile, /team, /compact, /research, /critic, /docx, /recalc, /soul, /enhance, /clear）
+# 支持 /resume, /sessions, /new, /rename, /think, /effort, /context, /status, /mode, /style, /model, /profile, /team, /compact, /research, /critic, /docx, /recalc, /soul, /enhance, /clear）
 wb
 ```
 
