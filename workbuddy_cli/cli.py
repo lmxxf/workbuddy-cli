@@ -829,6 +829,10 @@ def handle_slash_command(
             import subprocess
             proc = subprocess.run([sys.executable, str(script), sdir], text=True, capture_output=True)
             console.print(proc.stdout or proc.stderr)
+        elif arg.startswith("needle "):
+            q_str = arg[7:].strip()
+            matches = client.skill_router.llm_needle_match(q_str, client.simple_llm_call, top_k=3)
+            console.print_json(data=matches)
         else:
             matches = client.skill_router.match(arg, top_k=5)
             console.print_json(data=matches)
@@ -1083,7 +1087,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     if args.match_skill:
-        matches = client.skill_router.match(args.match_skill, top_k=5)
+        if args.llm and config.api_key:
+            matches = client.skill_router.llm_needle_match(args.match_skill, client.simple_llm_call, top_k=3)
+        else:
+            matches = client.skill_router.match(args.match_skill, top_k=5)
         console.print_json(data=matches)
         return 0
 

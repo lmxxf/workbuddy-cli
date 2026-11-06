@@ -343,6 +343,77 @@ class SkillRouter:
         q_vec = query_vector if query_vector is not None else compute_local_embedding(query)
         return self.index.search(query, query_vector=q_vec, top_k=top_k)
 
+    def build_catalog_haystack_prompt(self) -> str:
+        """
+        Builds a deterministic, prefix-cache-friendly catalog of all registered Skills/Tools.
+        When sent as the static `system` prompt to DeepSeek-V4.1-Flash, 100% of this catalog
+        hits DeepSeek's disk prefix cache (`prompt_cache_hit_tokens`), allowing zero-bloat
+        'Needle-in-a-Haystack' tool routing in a separate lightweight context!
+        """
+        lines = [
+            "You are a fast, deterministic Tool & Skill Router leveraging long-context Needle-in-a-Haystack attention.",
+            "Below is the full catalog of available Skills. Given the user's query, select the most relevant Skill IDs.",
+            "Return ONLY a JSON object: {\"matched_ids\": [\"skill-id-1\", \"skill-id-2\"], \"reason\": \"one-line reason\"}.",
+            "If no specialized skill is needed, return {\"matched_ids\": [], \"reason\": \"general query\"}.",
+            "",
+            "## Skill Catalog (Prefix-Cached Haystack)",
+        ]
+        for idx, item in enumerate(self.items_sorted(), start=1):
+            tags_str = ", ".join(item.tags)
+            ex_str = " | ".join(item.examples)
+            lines.append(
+                f"{idx}. id: `{item.id}`\n"
+                f"   description: {item.description}\n"
+                f"   tags: [{tags_str}]\n"
+                f"   examples: {ex_str}"
+            )
+        return "\n".join(lines)
+
+    def items_sorted(self) -> List[SkillItem]:
+        return [self.skills_by_id[k] for k in sorted(self.skills_by_id.keys())]
+
+    def llm_needle_match(
+        self,
+        query: str,
+        llm_call_fn: Any,
+        top_k: int = 3,
+    ) -> List[Dict[str, Any]]:
+        """
+        Zero's 'DeepSeek Needle-in-a-Haystack' Skill Router:
+        Runs a separate lightweight `DeepSeek-V4.1-Flash` context (`thinking: disabled`, prefix-cached catalog)
+        to pick the exact tools/skills without polluting the main conversation window's context!
+        """
+        import json as _json
+
+        sys_haystack = self.build_catalog_haystack_prompt()
+        user_needle = f"User query: {query}\nSelect up to {top_k} matching skill IDs as JSON."
+        try:
+            raw = llm_call_fn(sys_haystack, user_needle)
+            m = re.search(r"(\{[\s\S]*\})", raw)
+            parsed = _json.loads(m.group(1)) if m else {}
+            matched_ids = parsed.get("matched_ids") or []
+            reason = parsed.get("reason") or ""
+            results = []
+            for rank, sid in enumerate(matched_ids[:top_k], start=1):
+                item = self.skills_by_id.get(sid)
+                if item:
+                    results.append(
+                        {
+                            "id": item.id,
+                            "name": item.name,
+                            "description": item.description,
+                            "score": round(1.0 - (rank - 1) * 0.1, 4),
+                            "router": "deepseek-needle-in-a-haystack",
+                            "reason": reason,
+                            "file_path": str(item.file_path),
+                        }
+                    )
+            if results:
+                return results
+        except Exception:
+            pass
+        return self.match(query, top_k=top_k)
+
     def load_skill_content(self, skill_id: str, max_chars: int = 12000) -> str:
         item = self.skills_by_id.get(skill_id)
         if not item or not item.file_path.exists():
