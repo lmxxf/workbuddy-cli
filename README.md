@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](pyproject.toml)
 [![DeepSeek First-Class](https://img.shields.io/badge/DeepSeek-First--Class%20Citizen-blueviolet.svg)](https://api.deepseek.com)
-[![Tests: 12/12 Passed](https://img.shields.io/badge/Tests-12%2F12%20Passed-brightgreen.svg)](tests/test_all.py)
+[![Tests: 13/13 Passed](https://img.shields.io/badge/Tests-13%2F13%20Passed-brightgreen.svg)](tests/test_all.py)
 
 ---
 
@@ -25,7 +25,7 @@
    - **对外撑场面的“包工头多角色专家团”双倍 Token 爆炸**：拿同一个底座模型套上 **“交付总监齐活林、产品经理许清楚、架构师高见远、项目经理毕达成、程序员寇豆码、测试严过关”** 六顶谐音梗帽子，禁止团员直连，全靠包工头“齐活林”用 `<teammate-message>` 在中间复制粘贴当二传手（而腾讯程序员自己写核心 `tdoc-orchestrator.md` 第 150 行时却诚实地写着：`“⚠️ subagent 模式上下文隔离，效果不稳定，非必要不使用，推荐在单上下文喊 [角色切换]”`😂）。
 
 **`workbuddy-cli` (`wb`) 的设计目标**：
-- **DeepSeek-V4.1-Flash 一等公民（First-Class Citizen）**：默认直连 DeepSeek V4.1-Flash（`deepseek-flash` / `deepseek-v4.1-flash`，1M 上下文原生多模态；无缝支持切换 `deepseek-v4-pro` / `deepseek-reasoner` / `deepseek-chat`），支持完整 10 大 Agentic Tools 自动循环与 `/think <off|low|medium|high|max>` 思维链控长；
+- **DeepSeek-V4.1-Flash 一等公民 + 官方原生 `/v1/tools/search` 联网引擎**：默认直连 `DeepSeek-V4.1-Flash`（1M 上下文），原生集成 DeepSeek 最新上线的 **`POST /v1/tools/search` 与 `POST /v1/tools/fetch`**（直接复用同一个 DeepSeek API Key 鉴权，并带 DuckDuckGo Lite / Bing CN 免 Key 自动降级），支持完整 12 大 Agentic Tools 自动循环与 `/think <off|low|medium|high|max>` 思维链控长；
 - **去芜存菁（Lean Profile 节省 94%+ 开局 Token）**：默认启用按需挂载的 `lean` 模式（开局核心提示词仅 `~1,800` Tokens，通过本地 `0.8 * Cosine + 0.2 * BM25` `RecallIndex` 动态按需注入 Skill），同时保留 `--prompt-profile full` 1:1 复刻原版 `.tpl`；
 - **原生支持 `AGENTS.md` / `CLAUDE.md` 自动发现**：像 Codex / Antigravity CLI 一样自动识别项目根下的 `AGENTS.md`；
 - **修复原版三大工程 Bug**：
@@ -45,7 +45,7 @@
 | **4** | **Excel 公式三层重算与国标打标** | `openpyxl` 公式无 `<v>` 缓存导致微信预览空白；`sheet_recalc.py` 强行回填 `<v>` + `xlsx_aigc_label.py` 写 `GB 45438-2025` 标签 | `workbuddy_cli/tools/office_suite.py` 内置零依赖 OOXML 公式求值回填引擎 + 原版 `xlsx_aigc_label.py` 隐式打标（`--recalc-xlsx`） |
 | **5** | **五阶段 Deep Research (2/3 杠精陪审团)** | 迁就 `deepseek-chat` 砍掉 JSON Schema 参数改手写正则，对每条断言派 3 个怀疑论 Agent 投票，`>=2/3` 驳回即枪毙 | `workbuddy_cli/tools/deep_research.py` 完整复刻五阶段流水线、三层畸形 URL 域名提取、防全弃权假存活机制与 `Refuted Claims` 透明公示（`--research`） |
 | **6** | **对抗式盲审引擎 (`Critic-Generator`)** | 六步状态机：物理剥离作者思维链（`Isolate`）+ 延迟加载尺规 + 强制扣分配额（`min_issues=2, min_instructions=3`，严禁全部通过） | `workbuddy_cli/tools/critic_engine.py` 实现盲审包构造、强制扣分配额兜底与 `PASS / REVISE / DEGRADED` 报告生成（`--critic`） |
-| **7** | **混合技能检索 (`RecallIndex`)** | 本地 `0.8 * Cosine + 0.2 * BM25 (k1=1.5, b=0.75)` 动态路由 Skill，离线自动降级纯 BM25 | `workbuddy_cli/skill_router.py` 完整移植 `Bm25Index` 与 `RecallIndex`，内置 10 大逆向核心 Skill 并支持 `--match-skill` 与 `skill-creator` |
+| **7** | **混合技能检索 (`RecallIndex`)** | 本地 `0.8 * Cosine + 0.2 * BM25 (k1=1.5, b=0.75)` 动态路由 Skill，离线自动降级纯 BM25 | `workbuddy_cli/skill_router.py` 完整移植 `Bm25Index` 与 `RecallIndex`，内置 256 维本地 CJK-Bigram/Subword 归一化向量嵌入器确保非零 `Cosine + BM25` 混合打分 |
 | **8** | **物理级防删库沙箱 (`Safe-Delete`)** | `sitecustomize.py` 猴子补丁劫持 `os.remove / shutil.rmtree` 强行改发回收站 + 个人目录防删 8 铁律 + 3 段式文档备份事务 | `workbuddy_cli/tools/safe_shell.py` 实现 `PYTHONPATH` 自动注入回收站劫持垫片、禁区拦截与 `DocumentBackupTransaction` 快照回滚 |
 | **9** | **7 种说话风格 & 闪光增强 Prompt** | 含 `sarcastic`（毒舌死党：先嘲讽烂点子再给正确答案）等 7 种风格 + 右下角小闪光图标 `llm:enhancePrompt` | 支持 `--style sarcastic` 一键切换毒舌模式，以及 `--enhance` / `/enhance` 800 字以内同语种提示词增强 |
 | **10** | **谐音梗“专家团”双模式公开处刑** | 对外吹嘘 **齐活林/许清楚/高见远/毕达成/寇豆码/严过关** 子会话传话，对内自己写核心功能却用 `[角色切换]` 单上下文独角戏 | `workbuddy_cli/tools/expert_team.py` 同时支持 `--team-mode spawn`（带 `<teammate-message>` 二传手损耗账本）与 `--team-mode role-switch`！ |
@@ -101,12 +101,16 @@ wb -t high "简述 MLA 相比 MQA 的几何优势"
 # 查看当前精细上下文账本 (Base System Prompt / AGENTS.md / 历史对话占比与 15% 压缩水位线)
 wb --context
 
+# 调用 DeepSeek 官方原生 /v1/tools/search 联网搜索或让 Agent 自动查证实时问题
+wb --search "保定涞水县西岗塔"
+wb "联网搜一下保定涞水县西岗塔是什么朝代的建筑、有几层、哪一年入选全国重点文物保护单位"
+
 # 查看历史会话列表或一键恢复上一次会话继续聊 (-r / --resume)
 wb --sessions
 wb -r latest "继续刚才的话题"
 
 # 启动交互式 REPL（内置 prompt_toolkit 实时 `/` 下拉菜单 + 多级 `Tab` 自动补全：
-# 支持 /resume, /rewind, /undo, /sessions, /new, /rename, /think, /effort, /context, /status, /mode, /style, /model, /profile, /team, /compact, /research, /critic, /docx, /recalc, /soul, /enhance, /clear）
+# 支持 /search, /resume, /rewind, /undo, /sessions, /new, /rename, /think, /effort, /context, /status, /mode, /style, /model, /profile, /team, /compact, /research, /critic, /docx, /recalc, /soul, /enhance, /clear）
 wb
 ```
 

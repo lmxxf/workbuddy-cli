@@ -4,22 +4,60 @@ Directly ports `Bm25Index` and `RecallIndex` from WorkBuddyAI's `recall_service_
 and integrates the enhanced `skill-creator` (`init_skill.py`, `quick_validate.py`, `package_skill.py`).
 """
 
+import hashlib
 import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from .config import ASSETS_DIR
 
 
 TOKEN_REGEX = re.compile(r"[\u4e00-\u9fff]|[A-Za-z0-9_]+")
+LOCAL_EMBED_DIM = 256
 
 
 def tokenize(text: str) -> List[str]:
     if not text:
         return []
     return [m.group(0).lower() for m in TOKEN_REGEX.finditer(text)]
+
+
+def compute_local_embedding(text: str, dim: int = LOCAL_EMBED_DIM) -> List[float]:
+    """
+    Deterministic local 256-dim L2-normalized feature embedding (Signed Feature Hashing over
+    unigrams, CJK bigrams, and English character trigrams) when no remote `/v1/embeddings`
+    endpoint is configured (since DeepSeek official API does not expose `/v1/embeddings`).
+    Ensures `0.8 * Cosine + 0.2 * BM25` always computes real non-zero cosine similarity!
+    """
+    toks = tokenize(text)
+    if not toks:
+        return [0.0] * dim
+
+    features: List[Tuple[str, float]] = []
+    for i, t in enumerate(toks):
+        # Unigram feature (higher weight)
+        features.append((f"u:{t}", 1.5))
+        # Bigram feature for phrase/compound matching (e.g. 红头, 公文, 公式, 重算)
+        if i + 1 < len(toks):
+            features.append((f"b:{t}_{toks[i + 1]}", 2.0))
+        # Character 3-grams for English subword resilience (e.g. docx, recalc, xlsx)
+        if len(t) >= 3 and t.isascii():
+            for j in range(len(t) - 2):
+                features.append((f"c3:{t[j : j + 3]}", 0.8))
+
+    vec = [0.0] * dim
+    for feat, weight in features:
+        h = hashlib.md5(feat.encode("utf-8")).digest()
+        bucket = ((h[0] << 8) | h[1]) % dim
+        sign = 1.0 if (h[2] & 1) == 0 else -1.0
+        vec[bucket] += sign * weight
+
+    norm = math.sqrt(sum(v * v for v in vec))
+    if norm > 0.0:
+        vec = [v / norm for v in vec]
+    return vec
 
 
 def cosine_similarity(a: List[float], b: List[float]) -> float:
@@ -288,6 +326,10 @@ class SkillRouter:
                         )
                     )
 
+        for item in catalog:
+            if not item.vector:
+                item.vector = compute_local_embedding(item.recall_text())
+
         self.skills_by_id = {item.id: item for item in catalog}
         self.index.rebuild(catalog)
         return catalog
@@ -298,7 +340,8 @@ class SkillRouter:
         query_vector: Optional[List[float]] = None,
         top_k: int = 3,
     ) -> List[Dict[str, Any]]:
-        return self.index.search(query, query_vector=query_vector, top_k=top_k)
+        q_vec = query_vector if query_vector is not None else compute_local_embedding(query)
+        return self.index.search(query, query_vector=q_vec, top_k=top_k)
 
     def load_skill_content(self, skill_id: str, max_chars: int = 12000) -> str:
         item = self.skills_by_id.get(skill_id)

@@ -40,6 +40,7 @@ from .tools.office_suite import (
     create_sample_xlsx_without_cache,
 )
 from .tools.expert_team import ExpertTeamEngine
+from .tools.web_search import search_web, fetch_web_page
 
 
 AGENT_TOOLS_SCHEMA: List[Dict[str, Any]] = [
@@ -213,6 +214,37 @@ AGENT_TOOLS_SCHEMA: List[Dict[str, Any]] = [
                     "stage_task": {"type": "string", "description": "Task to execute under this role"},
                 },
                 "required": ["role_or_team", "stage_task"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Search the live internet via DeepSeek Official Search API (/v1/tools/search, supporting site:/-site:/lang:/after:/before:) with DuckDuckGo/Bing fallback.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query keywords (1-128 chars)"},
+                    "ori_question": {"type": "string", "description": "Original user question for reranking"},
+                    "max_results": {"type": "integer", "description": "Max results to return (default 5)"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_fetch",
+            "description": "Fetch and extract clean readable text from a web page URL.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "HTTP/HTTPS URL to fetch"},
+                    "max_chars": {"type": "integer", "description": "Maximum characters to return (default 6000)"},
+                },
+                "required": ["url"],
             },
         },
     },
@@ -443,6 +475,19 @@ class WorkBuddyAgentClient:
                     },
                     ensure_ascii=False,
                 )
+
+            elif name == "web_search":
+                q = args.get("query", "")
+                ori_q = args.get("ori_question", "")
+                max_r = int(args.get("max_results") or 5)
+                res = search_web(q, max_results=max_r, ori_question=ori_q, api_key=self.config.api_key)
+                return json.dumps(res, ensure_ascii=False)
+
+            elif name == "web_fetch":
+                u = args.get("url", "")
+                max_c = int(args.get("max_chars") or 6000)
+                res = fetch_web_page(u, max_chars=max_c, api_key=self.config.api_key)
+                return json.dumps(res, ensure_ascii=False)
 
             return json.dumps({"error": f"Unknown tool: {name}"})
         except Exception as exc:

@@ -495,6 +495,25 @@ shutil.rmtree({repr(str(victim_dir))})
         self.assertEqual(len(history), 2)
         self.assertIn("兰斯洛特7788", history[0]["content"])
 
+    def test_13_deepseek_official_search_and_local_cosine_embedding(self):
+        from workbuddy_cli.skill_router import SkillRouter, compute_local_embedding
+        from workbuddy_cli.tools.web_search import search_web
+
+        router = SkillRouter()
+        matches = router.match("Excel公式重算防止微信预览空白", top_k=3)
+        self.assertEqual(matches[0]["id"], "sheet-recalc")
+        # Both cosine and bm25 must be strictly > 0.0 now!
+        self.assertGreater(matches[0]["cosine"], 0.0)
+        self.assertGreater(matches[0]["bm25"], 0.0)
+
+        vec = compute_local_embedding("GB/T 9704 红头公文")
+        self.assertEqual(len(vec), 256)
+
+        # Live web search check (uses DeepSeek official /v1/tools/search if configured, or DDG/Bing fallback)
+        s_res = search_web("保定涞水县西岗塔", max_results=3)
+        self.assertGreaterEqual(s_res.get("count", 0), 1)
+        self.assertIn(s_res.get("engine"), ("deepseek-official-search", "duckduckgo-lite", "bing-cn"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -46,6 +46,7 @@ from .tools.critic_engine import CriticGeneratorEngine
 from .tools.deep_research import DeepResearchWorkflow
 from .tools.expert_team import ExpertTeamEngine
 from .tools.visualizer import generate_architecture_svg_widget
+from .tools.web_search import search_web, fetch_web_page
 
 
 console = Console()
@@ -68,6 +69,7 @@ SLASH_COMMANDS_META: List[Tuple[str, str, str]] = [
     ("/profile", "/profile <lean|full>", "切换提示词档位 (lean 2.6K 精简按需 vs full 33K 腾讯原版 .tpl)"),
     ("/team", "/team [TeamId] [spawn|role-switch] <task>", "召唤『齐活林』10大官方谐音梗专家团 (spawn 二传手 vs role-switch 原地换帽)"),
     ("/compact", "/compact [--engineering-only|--llm]", "执行三级上下文压缩 (含假完工催眠 Bug 修复)"),
+    ("/search", "/search <query>", "调用 DeepSeek 官方原生搜索 (/v1/tools/search) 实时联网检索"),
     ("/research", "/research <topic>", "运行五阶段 Deep Research 深度研究 (2/3 怀疑论杠精陪审团)"),
     ("/critic", "/critic <file_or_text>", "运行六步对抗式盲审引擎 (强制扣分配额 min_issues=2, min_instructions=3)"),
     ("/docx", "/docx <title> [out.docx]", "三阶段 GB/T 9704 红头公文生成 + 零 LLM review_html.py AST 门禁"),
@@ -889,6 +891,25 @@ def handle_slash_command(
         console.print(Markdown(res["markdown_report"]))
         return True
 
+    if cmd == "/search":
+        if not arg:
+            console.print("[red]Usage: /search <query> (supports site: / -site: / lang: / after: / before:)[/red]")
+            return True
+        s_res = search_web(arg, max_results=5, ori_question=arg, api_key=config.api_key)
+        t = Table(
+            title=f"🌐 Web Search Results for '{arg}' (Engine: {s_res.get('engine')})",
+            header_style="bold cyan",
+        )
+        t.add_column("#", style="yellow", no_wrap=True)
+        t.add_column("Title & Site", style="green")
+        t.add_column("Summary / Snippet", style="white", ratio=2)
+        for idx, r in enumerate(s_res.get("results", []), start=1):
+            site_info = f"\n[dim]{r.get('site_name', '')} | score={r.get('rerank_score', '')} | {r.get('url', '')[:50]}[/dim]"
+            body = (r.get("summary") or r.get("snippet") or "")[:260].replace("\n", " ")
+            t.add_row(str(idx), f"[bold]{r.get('title', '')}[/bold]{site_info}", body)
+        console.print(t)
+        return True
+
     if cmd == "/docx":
         sub = arg.split()
         title = sub[0] if sub else "关于全面推进人工智能安全工程落地的通知"
@@ -1009,6 +1030,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--recalc-xlsx", metavar="XLSX_FILE", help="Recalculate Excel formulas (<v> backfill) & stamp AIGC label")
     parser.add_argument("--compact-demo", action="store_true", help="Run 3-stage /compact demo (showing engineering pruning & fixed LLM prompt)")
     parser.add_argument("--critic", metavar="TEXT_OR_FILE", help="Run 6-step Critic-Generator blind review")
+    parser.add_argument("--search", metavar="QUERY", help="Run DeepSeek official web search (/v1/tools/search) on QUERY")
     parser.add_argument("--research", metavar="TOPIC", help="Run 5-phase Deep Research with 2/3 skeptical jury")
     parser.add_argument("--list-teams", action="store_true", help="List all 10 builtin Expert Teams and homophonic pun rosters")
     parser.add_argument("--team", metavar="TEAM_ID", help="Run an Expert Team (e.g. SoftwareCompany led by 齐活林)")
@@ -1145,6 +1167,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         wf = DeepResearchWorkflow(llm_call_fn=llm_fn)
         res = wf.run(args.research)
         console.print(Markdown(res["markdown_report"]))
+        return 0
+
+    if args.search:
+        handle_slash_command(f"/search {args.search}", config, client, [])
         return 0
 
     if args.list_teams:

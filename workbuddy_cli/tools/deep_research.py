@@ -19,6 +19,8 @@ import re
 from urllib.parse import urlparse
 from typing import Dict, Any, List, Optional, Callable
 
+from .web_search import search_web
+
 
 VOTES_PER_CLAIM = 3
 REFUTATIONS_REQUIRED = 2
@@ -117,15 +119,34 @@ class DeepResearchWorkflow:
             if parsed_scope and isinstance(parsed_scope.get("angles"), list) and len(parsed_scope["angles"]) >= 2:
                 angles = parsed_scope["angles"][:max_angles]
 
-        # Phase 2 & 3: Search + Fetch & Extract Falsifiable Claims
+        # Phase 2 & 3: Live Web Search + Fetch & Extract Falsifiable Claims
+        live_search_hits: List[Dict[str, str]] = []
+        seen_urls = set()
+        for ang in angles[:2]:
+            s_res = search_web(ang.get("query") or q, max_results=4)
+            for item in s_res.get("results", []):
+                u = item.get("url", "")
+                if u and u not in seen_urls:
+                    seen_urls.add(u)
+                    live_search_hits.append(item)
+
         extracted_claims: List[Dict[str, Any]] = []
         if self.llm_call_fn:
+            hits_context = (
+                "\n".join(
+                    f"- [{h['title']}]({h['url']}): {h['snippet']}"
+                    for h in live_search_hits[:6]
+                )
+                if live_search_hits
+                else "(No live web hits; use domain knowledge)"
+            )
             extract_prompt = (
                 f"For the research question: \"{q}\"\n"
-                f"Across these angles: {', '.join(a['label'] for a in angles)}\n"
-                "Generate 4 concrete, falsifiable claims (3 well-supported primary/secondary claims and 1 overstated/marketing claim that should be scrutinized).\n"
+                f"Across these angles: {', '.join(a['label'] for a in angles)}\n\n"
+                f"## Live Web Search Results\n{hits_context}\n\n"
+                "Extract 4 concrete, falsifiable claims (citing the real URLs above where applicable, plus 1 overstated/skeptical claim to test the jury).\n"
                 "Return ONLY valid JSON matching:\n"
-                '{"claims": [{"claim": "str", "quote": "str", "sourceUrl": "https://example.org/paper", "sourceQuality": "primary|secondary|blog|forum", "importance": "central|supporting"}]}'
+                '{"claims": [{"claim": "str", "quote": "str", "sourceUrl": "https://...", "sourceQuality": "primary|secondary|blog|forum", "importance": "central|supporting"}]}'
             )
             agent_calls += 1
             raw_ext = self.llm_call_fn("You are a claim extractor. Output JSON only.", extract_prompt)
