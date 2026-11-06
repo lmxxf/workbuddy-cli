@@ -106,7 +106,7 @@ wb --sessions
 wb -r latest "继续刚才的话题"
 
 # 启动交互式 REPL（内置 prompt_toolkit 实时 `/` 下拉菜单 + 多级 `Tab` 自动补全：
-# 支持 /resume, /sessions, /new, /rename, /think, /effort, /context, /status, /mode, /style, /model, /profile, /team, /compact, /research, /critic, /docx, /recalc, /soul, /enhance, /clear）
+# 支持 /resume, /rewind, /undo, /sessions, /new, /rename, /think, /effort, /context, /status, /mode, /style, /model, /profile, /team, /compact, /research, /critic, /docx, /recalc, /soul, /enhance, /clear）
 wb
 ```
 

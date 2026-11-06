@@ -471,6 +471,30 @@ shutil.rmtree({repr(str(victim_dir))})
         self.assertIn("兰斯洛特7788", history[0]["content"])
         self.assertEqual(replay_session_history(history), 2)
 
+        # Add a 2nd and 3rd turn, test `/rewind` completions, `/rewind 1`, and `/rewind to 1`
+        history.extend(
+            [
+                {"role": "user", "content": "<user_query>\n第二轮提问：1+1\n</user_query>"},
+                {"role": "assistant", "content": "等于 2"},
+                {"role": "user", "content": "<user_query>\n第三轮提问：说错话了撤回我\n</user_query>"},
+                {"role": "assistant", "content": "好的"},
+            ]
+        )
+        rewind_cands = [c[0] for c in get_subcommand_completions("/rewind", [], "", client, history=history)]
+        self.assertIn("1", rewind_cands)
+        self.assertIn("list", rewind_cands)
+        self.assertIn("to 1", rewind_cands)
+
+        # `/rewind` (default 1 turn) drops Turn #3, leaving 2 turns (4 messages)
+        handle_slash_command("/rewind", self.config, client, history)
+        self.assertEqual(len(history), 4)
+        self.assertNotIn("说错话了撤回我", json.dumps(history, ensure_ascii=False))
+
+        # `/rewind to 1` keeps only Turn #1 (2 messages)
+        handle_slash_command("/rewind to 1", self.config, client, history)
+        self.assertEqual(len(history), 2)
+        self.assertIn("兰斯洛特7788", history[0]["content"])
+
 
 if __name__ == "__main__":
     unittest.main()

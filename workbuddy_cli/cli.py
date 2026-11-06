@@ -55,6 +55,8 @@ SLASH_COMMANDS_META: List[Tuple[str, str, str]] = [
     ("/context", "/context", "查看精细上下文账本 (System/AGENTS.md/History Token 占比与压缩水位线)"),
     ("/status", "/status", "查看当前会话状态、模型配置与上下文账本 (同 /context)"),
     ("/resume", "/resume [latest|1|<session_id>]", "查看或恢复历史会话 (不带参数列历史表，支持序号 1/2、latest 或 Session ID 恢复)"),
+    ("/rewind", "/rewind [1|N|to #|list]", "对话时间机器回退 (默认撤回最近 1 轮提问与回复，支持撤回 N 轮或回退到指定 Turn)"),
+    ("/undo", "/undo [1|N]", "撤回最近 1 轮或 N 轮对话 (同 /rewind)"),
     ("/sessions", "/sessions [list|delete <id>]", "列出或删除本地持久化的历史会话 (~/.workbuddy-cli/sessions/)"),
     ("/new", "/new [title]", "保存当前对话并开启一个全新的干净 Session 窗口"),
     ("/rename", "/rename <new_title>", "为当前会话设置自定义标题 (方便后续 /resume 查找)"),
@@ -118,19 +120,45 @@ SOUL_CANDIDATES: List[Tuple[str, str]] = [
 ]
 
 
-def get_subcommand_completions(cmd: str, arg_tokens: List[str], current_word: str, client: WorkBuddyAgentClient) -> List[Tuple[str, str]]:
+def get_user_turn_indices(history: List[Dict[str, Any]]) -> List[int]:
+    """Returns indices in `history` where each user turn begins."""
+    return [idx for idx, m in enumerate(history) if m.get("role") == "user"]
+
+
+def get_subcommand_completions(
+    cmd: str,
+    arg_tokens: List[str],
+    current_word: str,
+    client: WorkBuddyAgentClient,
+    history: Optional[List[Dict[str, Any]]] = None,
+) -> List[Tuple[str, str]]:
     """
     Returns `(completion_text, display_meta)` pairs for 1st, 2nd, and 3rd level slash command arguments.
     """
     cmd = cmd.lower()
-    # Determine which argument slot the user is currently typing (0-indexed after command)
     slot_idx = len(arg_tokens) - 1 if current_word else len(arg_tokens)
     prefix = current_word.lower()
+    hist = history or []
 
     candidates: List[Tuple[str, str]] = []
 
     if cmd == "/mode" and slot_idx == 0:
         candidates = MODE_CANDIDATES
+    elif cmd in ("/rewind", "/undo") and slot_idx == 0:
+        u_indices = get_user_turn_indices(hist)
+        total_turns = len(u_indices)
+        if total_turns == 0:
+            candidates = [("1", "撤回最近 1 轮对话 (当前暂无历史轮次)"), ("list", "查看当前会话所有轮次节点")]
+        else:
+            last_q = _strip_user_query_tags(str(hist[u_indices[-1]].get("content", "")))[:36]
+            candidates.append(("1", f"撤回最近 1 轮 (Turn #{total_turns}: \"{last_q}\")"))
+            for n in range(2, min(total_turns + 1, 6)):
+                target_q = _strip_user_query_tags(str(hist[u_indices[-n]].get("content", "")))[:32]
+                candidates.append((str(n), f"撤回最近 {n} 轮 (回退至 Turn #{total_turns - n + 1}: \"{target_q}\" 之前)"))
+            candidates.append(("list", f"列出当前会话全部 {total_turns} 个 Turn 节点时间线"))
+            for t_num, h_idx in enumerate(u_indices, start=1):
+                tq = _strip_user_query_tags(str(hist[h_idx].get("content", "")))[:32]
+                candidates.append((f"to {t_num}", f"保留前 {t_num} 轮 (截断 Turn #{t_num} \"{tq}\" 之后的内容)"))
     elif cmd in ("/think", "/effort") and slot_idx == 0:
         candidates = THINK_CANDIDATES
     elif cmd == "/style" and slot_idx == 0:
@@ -175,7 +203,7 @@ def get_subcommand_completions(cmd: str, arg_tokens: List[str], current_word: st
     return [(text, meta) for text, meta in candidates if text.lower().startswith(prefix)]
 
 
-def build_prompt_session(client: WorkBuddyAgentClient):
+def build_prompt_session(client: WorkBuddyAgentClient, history: Optional[List[Dict[str, Any]]] = None):
     """
     Builds a `prompt_toolkit.PromptSession` with real-time `/` dropdown menu and `Tab` completion.
     Gracefully returns `None` if `prompt_toolkit` is unavailable or terminal is not a TTY.
@@ -217,7 +245,7 @@ def build_prompt_session(client: WorkBuddyAgentClient):
             cmd_name = parts[0].lower()
             raw_args = parts[1:]
             current_word = "" if has_trailing_space else raw_args[-1]
-            sub_candidates = get_subcommand_completions(cmd_name, raw_args, current_word, client)
+            sub_candidates = get_subcommand_completions(cmd_name, raw_args, current_word, client, history=history)
             for cand_text, cand_meta in sub_candidates:
                 yield Completion(
                     text=cand_text,
@@ -517,7 +545,91 @@ def handle_slash_command(
     if cmd == "/clear":
         count = len(history)
         history.clear()
+        client.session_manager.save_session(config, history)
         console.print(f"[green]✓ Cleared {count} conversation history items.[/green]")
+        return True
+
+    if cmd in ("/rewind", "/undo"):
+        u_indices = get_user_turn_indices(history)
+        total_turns = len(u_indices)
+        if total_turns == 0:
+            console.print("[yellow]Nothing to rewind — current session history is empty.[/yellow]")
+            return True
+
+        arg_clean = arg.strip().lower()
+        if arg_clean == "list":
+            t = Table(
+                title=f"⏪ Session Turn Timeline ({total_turns} turns) — Use `/rewind <N>` or `/rewind to <#>`",
+                header_style="bold cyan",
+            )
+            t.add_column("Turn #", style="yellow", no_wrap=True)
+            t.add_column("User Message", style="cyan")
+            t.add_column("Assistant Reply Preview", style="green")
+            for t_num, u_idx in enumerate(u_indices, start=1):
+                next_u_idx = u_indices[t_num] if t_num < total_turns else len(history)
+                u_text = _strip_user_query_tags(str(history[u_idx].get("content", "")))[:60]
+                asst_replies = [
+                    str(m.get("content", "")).strip()
+                    for m in history[u_idx + 1 : next_u_idx]
+                    if m.get("role") == "assistant" and str(m.get("content", "")).strip()
+                ]
+                a_preview = (asst_replies[-1][:60] + "…") if asst_replies else "(tool/empty)"
+                t.add_row(f"#{t_num}", u_text, a_preview)
+            console.print(t)
+            return True
+
+        # Parse `/rewind to <turn_num>` vs `/rewind [N]`
+        cut_from_history_idx: Optional[int] = None
+        rewound_turns_count = 1
+        if arg_clean.startswith("to "):
+            target_str = arg_clean[3:].strip().lstrip("#")
+            if not target_str.isdigit():
+                console.print("[red]Usage: `/rewind to <turn_number>` (e.g. `/rewind to 1` keeps Turn #1 and drops later turns)[/red]")
+                return True
+            keep_turns = int(target_str)
+            if keep_turns < 0 or keep_turns >= total_turns:
+                console.print(f"[yellow]Turn #{keep_turns} is out of range (current turns: 1..{total_turns}).[/yellow]")
+                return True
+            cut_from_history_idx = 0 if keep_turns == 0 else u_indices[keep_turns]
+            rewound_turns_count = total_turns - keep_turns
+        else:
+            if not arg_clean:
+                n_back = 1
+            elif arg_clean.isdigit():
+                n_back = int(arg_clean)
+            else:
+                console.print("[red]Usage: `/rewind [N]` | `/rewind to <turn_number>` | `/rewind list`[/red]")
+                return True
+            if n_back <= 0:
+                console.print("[yellow]Rewind count must be >= 1.[/yellow]")
+                return True
+            n_back = min(n_back, total_turns)
+            cut_from_history_idx = u_indices[total_turns - n_back]
+            rewound_turns_count = n_back
+
+        removed_slice = history[cut_from_history_idx:]
+        del history[cut_from_history_idx:]
+        client.session_manager.save_session(config, history)
+
+        removed_user_queries = [
+            _strip_user_query_tags(str(m.get("content", "")))
+            for m in removed_slice
+            if m.get("role") == "user"
+        ]
+        last_removed_q = removed_user_queries[0] if removed_user_queries else ""
+
+        console.print(
+            Panel(
+                f"[bold yellow]⏪ Rewound {rewound_turns_count} turn(s)[/bold yellow] "
+                f"(removed {len(removed_slice)} messages; {len(get_user_turn_indices(history))} turn(s) remaining)\n"
+                f"Withdrawn query: [dim]\"{last_removed_q[:80]}\"[/dim]",
+                border_style="yellow",
+            )
+        )
+        if history:
+            replay_session_history(history)
+        else:
+            console.print("[dim]Session history is now at the beginning (0 turns).[/dim]")
         return True
 
     if cmd == "/new":
@@ -1079,7 +1191,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.resume:
         handle_slash_command(f"/resume {args.resume}", config, client, history)
 
-    pt_session = build_prompt_session(client) if sys.stdin.isatty() else None
+    pt_session = build_prompt_session(client, history=history) if sys.stdin.isatty() else None
 
     while True:
         try:
